@@ -110,23 +110,46 @@ fi
 if $INSTALL_GOOGLE && ${NEED_GOOGLE_LOGIN:-false}; then
     # Install gcloud CLI if not present
     if ! command -v gcloud &> /dev/null; then
-        echo "Installing Google Cloud CLI..."
-        echo "(This may take a minute)"
-        echo ""
-
-        # Download and run the gcloud installer
-        curl -sSL https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir="$HOME" 2>/dev/null
-        export PATH="$HOME/google-cloud-sdk/bin:$PATH"
-
-        # Verify it worked
-        if ! command -v gcloud &> /dev/null; then
+        # Also check common install locations not yet in PATH
+        if [ -f "$HOME/google-cloud-sdk/bin/gcloud" ]; then
+            export PATH="$HOME/google-cloud-sdk/bin:$PATH"
+            echo "  gcloud CLI found at $HOME/google-cloud-sdk"
+        elif [ -f "/usr/local/share/google-cloud-sdk/bin/gcloud" ]; then
+            export PATH="/usr/local/share/google-cloud-sdk/bin:$PATH"
+            echo "  gcloud CLI found at /usr/local/share/google-cloud-sdk"
+        else
+            echo "Installing Google Cloud CLI..."
+            echo "(This may take a few minutes)"
             echo ""
-            echo "Could not install gcloud automatically."
-            echo "Please install it manually from: https://cloud.google.com/sdk/docs/install"
-            echo "Then re-run this script."
-            exit 1
+
+            # Detect architecture for correct download
+            ARCH=$(uname -m)
+            if [ "$ARCH" = "arm64" ]; then
+                GCLOUD_URL="https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-darwin-arm.tar.gz"
+            else
+                GCLOUD_URL="https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-darwin-x86_64.tar.gz"
+            fi
+
+            # Download and extract directly (no interactive installer)
+            curl -sSL "$GCLOUD_URL" -o /tmp/google-cloud-sdk.tar.gz
+            tar -xzf /tmp/google-cloud-sdk.tar.gz -C "$HOME"
+            rm -f /tmp/google-cloud-sdk.tar.gz
+
+            # Run install script non-interactively (adds to PATH in future shells)
+            "$HOME/google-cloud-sdk/install.sh" --quiet --path-update true 2>/dev/null || true
+
+            export PATH="$HOME/google-cloud-sdk/bin:$PATH"
+
+            # Verify it worked
+            if ! command -v gcloud &> /dev/null; then
+                echo ""
+                echo "Could not install gcloud automatically."
+                echo "Please install it manually from: https://cloud.google.com/sdk/docs/install"
+                echo "Then re-run this script."
+                exit 1
+            fi
+            echo "  gcloud CLI installed"
         fi
-        echo "  gcloud CLI installed"
     else
         echo "  gcloud CLI already installed"
     fi
