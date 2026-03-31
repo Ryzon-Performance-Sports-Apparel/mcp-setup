@@ -1,25 +1,36 @@
-"""sync_status tool — Drive-to-GCS sync status (Phase 1 stub)."""
+"""sync_status tool — report last Drive-to-GCS sync status."""
 
 import json
 
+from .gcs import read_sync_state
 from .server import mcp_server
 
 
 @mcp_server.tool()
 async def sync_status() -> str:
-    """Check the status of Google Drive to GCS sync.
+    """Check the status of the last Google Drive to GCS sync.
 
-    Phase 1: Returns a stub indicating sync is not yet configured.
-    Phase 2 will implement real-time sync monitoring via Cloud Functions.
+    Reports when the last sync ran, how many files were synced,
+    and any errors that occurred.
     """
+    state = read_sync_state()
+
+    if state is None:
+        return json.dumps(
+            {
+                "status": "never_synced",
+                "message": "No sync has been run yet. Use trigger_sync to start one.",
+            },
+            indent=2,
+        )
+
     return json.dumps(
         {
-            "status": "not_configured",
-            "message": (
-                "Google Drive sync is not yet configured. "
-                "This feature will be available in Phase 2. "
-                "For now, use upload_asset to add assets directly."
-            ),
+            "status": state.get("last_sync_result", "unknown"),
+            "last_sync_at": state.get("last_sync_at", ""),
+            "files_synced": state.get("files_synced", 0),
+            "total_drive_files": state.get("total_drive_files", 0),
+            "errors": state.get("errors", []),
         },
         indent=2,
     )
