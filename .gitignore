@@ -1,0 +1,11 @@
+install-meta-ads.sh
+install-google-ads.sh
+.DS_Store
+*.json-key
+*-sa-key.json
+.env
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
