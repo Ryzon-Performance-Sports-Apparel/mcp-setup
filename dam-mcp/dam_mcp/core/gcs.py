@@ -1,6 +1,7 @@
 """GCS client wrapper — single point of interaction with Google Cloud Storage."""
 
 import datetime
+import json as _json
 
 from google.cloud import storage
 
@@ -191,3 +192,36 @@ def search_blobs(
         results.append(blob_to_metadata_dict(blob))
 
     return results
+
+
+SYNC_STATE_BLOB = ".dam_sync_state.json"
+
+
+def find_blob_by_drive_id(drive_file_id: str) -> storage.Blob | None:
+    """Find a blob by its Drive file ID in custom metadata."""
+    bucket = get_bucket()
+    for blob in bucket.list_blobs():
+        blob.reload()
+        meta = blob.metadata or {}
+        if meta.get(f"{DAM_META_PREFIX}drive_file_id") == drive_file_id:
+            return blob
+    return None
+
+
+def write_sync_state(state: dict) -> None:
+    """Write sync state to a JSON object in GCS."""
+    bucket = get_bucket()
+    blob = bucket.blob(SYNC_STATE_BLOB)
+    blob.upload_from_string(
+        _json.dumps(state, indent=2),
+        content_type="application/json",
+    )
+
+
+def read_sync_state() -> dict | None:
+    """Read sync state from GCS. Returns None if no state exists."""
+    bucket = get_bucket()
+    blob = bucket.blob(SYNC_STATE_BLOB)
+    if not blob.exists():
+        return None
+    return _json.loads(blob.download_as_text())
