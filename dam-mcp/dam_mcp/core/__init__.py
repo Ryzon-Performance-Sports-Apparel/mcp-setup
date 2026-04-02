@@ -11,3 +11,4 @@ from .tools_tag import tag_asset
 from .tools_search import search_assets
 from .tools_sync import sync_status
 from .tools_trigger_sync import trigger_sync
+from .tools_figma_export import export_figma_frames
