@@ -23,6 +23,7 @@ fi
 # OAuth credentials (read from environment or prompt)
 OAUTH_CLIENT_ID="${DAM_OAUTH_CLIENT_ID:?Set DAM_OAUTH_CLIENT_ID env var}"
 OAUTH_CLIENT_SECRET="${DAM_OAUTH_CLIENT_SECRET:?Set DAM_OAUTH_CLIENT_SECRET env var}"
+FIGMA_PAT="${DAM_FIGMA_PAT:?Set DAM_FIGMA_PAT env var}"
 
 # Write env vars to temp YAML file
 ENV_FILE=$(mktemp /tmp/dam-mcp-env.XXXXXX.yaml)
@@ -35,6 +36,7 @@ GCP_PROJECT_ID: '${PROJECT_ID}'
 GCS_BUCKET_NAME: 'ryzon-dam'
 GDRIVE_FOLDER_ID: '1SPknjndspaBH3-HWSdAomM9_HjEuSzM3'
 SIGNED_URL_EXPIRY_MINUTES: '60'
+FIGMA_PAT: '${FIGMA_PAT}'
 EOF
 
 echo "Building and deploying to Cloud Run..."
