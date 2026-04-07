@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from google.cloud import firestore
+from google.cloud.firestore_v1.vector import Vector
+from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
 
 from .config import config
 from .utils import logger
@@ -182,3 +184,31 @@ def document_to_json(doc: dict[str, Any], include_content: bool = True) -> dict:
             result["content_preview"] = content
             del result["content"]
     return result
+
+
+def vector_search(
+    query_embedding: list[float],
+    collection: str = COLLECTION_GENERAL,
+    doc_type: str | None = None,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Perform KNN vector search using Firestore native vector fields."""
+    client = get_client()
+    query = client.collection(collection).find_nearest(
+        vector_field="embedding",
+        query_vector=Vector(query_embedding),
+        distance_measure=DistanceMeasure.COSINE,
+        limit=limit,
+    )
+
+    if doc_type:
+        query = query.where("type", "==", doc_type)
+
+    results = []
+    for doc in query.stream():
+        data = doc.to_dict()
+        data["id"] = doc.id
+        data.pop("embedding", None)
+        results.append(data)
+
+    return results

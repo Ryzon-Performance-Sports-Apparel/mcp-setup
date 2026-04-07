@@ -182,3 +182,31 @@ def test_document_to_json_without_content_long():
     assert "content" not in result
     assert result["content_preview"].endswith("...")
     assert len(result["content_preview"]) == 503  # 500 + "..."
+
+
+@patch("dam_mcp.core.firestore.get_client")
+def test_vector_search(mock_get_client):
+    from dam_mcp.core.firestore import vector_search
+
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+
+    mock_doc = MagicMock()
+    mock_doc.id = "doc1"
+    mock_doc.to_dict.return_value = {
+        "type": "meeting_note",
+        "title": "Sprint Planning",
+        "content": "Planned the sprint.",
+        "tags": ["sprint"],
+    }
+
+    mock_query = MagicMock()
+    mock_query.where.return_value = mock_query
+    mock_query.limit.return_value = mock_query
+    mock_query.stream.return_value = [mock_doc]
+    mock_client.collection.return_value.find_nearest.return_value = mock_query
+
+    results = vector_search(query_embedding=[0.1] * 1024, limit=5)
+    assert len(results) == 1
+    assert results[0]["id"] == "doc1"
+    mock_client.collection.return_value.find_nearest.assert_called_once()
