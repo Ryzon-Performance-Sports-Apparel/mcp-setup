@@ -1,432 +1,493 @@
 # Ryzon AI Platform — Project Overview
 
-> Making advertising, creative assets, and team knowledge accessible to AI — so your team can focus on strategy, not manual work.
+> Alle Unternehmensdaten an einem Ort — als Fundament für AI-Agenten, LLM-Anwendungen und smarte Cloud-Services.
 
 ---
 
-## What Is This?
+## Die Vision
 
-This platform connects **AI assistants** (like Claude) to the tools your team already uses: **Meta Ads**, **Google Ads**, **Google Drive**, **Figma**, and **meeting notes**. Instead of clicking through ad dashboards or digging through shared folders, you simply _ask_ the AI to do it for you.
+Unternehmenswissen ist heute über Dutzende Tools verstreut: Meeting-Notizen in Google Drive, Aufgaben in Asana, Kreativ-Assets in Figma, Kundendaten im ERP, E-Mails in Gmail. Jedes Tool hat seine eigene Suche, sein eigenes Format, seinen eigenen Zugang.
+
+**Die zentrale Datenbank ändert das.** Sie sammelt Informationen aus allen Quellen, reichert sie mit AI an und stellt sie einheitlich bereit — für AI-Agenten, für LLM-Anwendungen via MCP, und für Web-Services in der Cloud.
 
 ```
-You:    "Create a new Meta ad campaign for our summer collection,
-         use the hero image from the DAM, target cycling enthusiasts
-         in Germany, and set a daily budget of €50."
+Team-Mitglied:  "Was wurde in den letzten Meetings zum Thema ERP beschlossen?"
 
-Claude: Done. Campaign "Summer Collection 2026" is live.
-        Used hero-1080x1080.png from the Summer-2026 folder.
-        Targeting 1.2M cycling enthusiasts in DE.
-        Daily budget: €50. Here's the preview link: ...
+AI-Agent:       Ich habe 4 relevante Meetings gefunden:
+                - 18.03. ERP-Auswahl: Shortlist auf Odoo und NetSuite eingegrenzt
+                - 25.03. Vendor-Demo: Odoo überzeugt bei Warenwirtschaft
+                - 01.04. Entscheidung: Odoo wird Pilotprojekt ab Mai
+                - 07.04. Kick-off: Simon koordiniert Implementierung
 ```
-
-No dashboards. No manual uploads. No copy-pasting between tools.
 
 ---
 
-## The Big Picture
+## Die Architektur — Zentrale Datenbank als Fundament
 
 ```mermaid
 graph TB
-    subgraph "People"
-        User["Team Member"]
-        Designer["Designer"]
+    subgraph "Datenquellen — alles fließt rein"
+        DRIVE["Google Drive\n(Meeting-Notizen,\nDokumente)"]
+        ASANA["Asana\n(Aufgaben,\nProjekte)"]
+        ERP["ERP-System\n(Kunden, Bestellungen,\nWarenwirtschaft)"]
+        EMAIL["E-Mail\n(Gmail, Outlook)"]
+        FIGMA["Figma\n(Designs,\nCreatives)"]
+        GRANOLA["Granola.ai\n(AI Meeting Notes)"]
     end
 
-    subgraph "AI Layer"
-        Claude["Claude AI Assistant"]
+    subgraph "Sync-Pipelines — automatisch, stündlich"
+        SYNC["Sync-Engine\n+ AI-Anreicherung"]
     end
 
-    subgraph "MCP Servers — the bridges between AI and your tools"
-        META["Meta Ads Server"]
-        GADS["Google Ads Server"]
-        DAM["Digital Asset Manager"]
+    subgraph "ZENTRALE DATENBANK"
+        direction TB
+        FS["Firestore Knowledge Base"]
+        GCS["Cloud Storage\n(Dateien & Bilder)"]
+
+        FS --- |"Texte, Metadaten,\nVektoren, Tags"| DB_NOTE["Meeting Notes"]
+        FS --- |"Aufgaben,\nDeadlines"| DB_TASK["Projektdaten"]
+        FS --- |"Kunden,\nBestellungen"| DB_ERP["ERP-Daten"]
+        FS --- |"Korrespondenz,\nAnhänge"| DB_EMAIL["E-Mails"]
     end
 
-    subgraph "External Platforms"
-        FB["Meta / Facebook / Instagram"]
+    subgraph "Verbraucher — alles greift darauf zu"
+        MCP["AI-Agenten\nvia MCP"]
+        WEB["Web-Apps\nin der Cloud"]
+        LLM["LLM-Anwendungen\n(Claude, GPT, etc.)"]
+        DASH["Dashboards\n& Reports"]
+    end
+
+    DRIVE --> SYNC
+    ASANA --> SYNC
+    ERP --> SYNC
+    EMAIL --> SYNC
+    FIGMA --> SYNC
+    GRANOLA --> SYNC
+
+    SYNC --> FS
+    SYNC --> GCS
+
+    FS --> MCP
+    FS --> WEB
+    FS --> LLM
+    FS --> DASH
+    GCS --> MCP
+    GCS --> WEB
+
+    style FS fill:#FF6F00,color:#fff,stroke:#FF6F00,stroke-width:3px
+    style GCS fill:#4285F4,color:#fff
+    style SYNC fill:#10B981,color:#fff
+    style MCP fill:#8B5CF6,color:#fff
+    style WEB fill:#3B82F6,color:#fff
+    style LLM fill:#8B5CF6,color:#fff
+    style DASH fill:#3B82F6,color:#fff
+```
+
+### Warum eine zentrale Datenbank?
+
+| Ohne zentrale DB | Mit zentraler DB |
+|-----------------|-----------------|
+| Jedes Tool hat eigene Suche | **Eine Suche** findet alles |
+| AI kann nur ein Tool gleichzeitig nutzen | AI hat **Zugriff auf alles** in einem Schritt |
+| Web-Apps brauchen je eine eigene Integration | Web-Apps nutzen **eine einzige Quelle** |
+| Wissen geht verloren | Alles wird **dauerhaft gespeichert und angereichert** |
+| Kontextwechsel für jede Frage | **Ein Ort** für alle Fragen |
+
+---
+
+## Wie Daten in die zentrale Datenbank kommen
+
+```mermaid
+sequenceDiagram
+    participant Quelle as Datenquelle
+    participant Sync as Sync-Pipeline
+    participant AI as AI-Anreicherung
+    participant DB as Zentrale Datenbank
+    participant Agent as AI-Agent / Web-App
+
+    Quelle->>Sync: Neue Daten verfügbar
+    Sync->>Sync: Abholen & Formatieren
+    Sync->>DB: Rohdaten speichern
+
+    Note over AI,DB: Automatisch bei jedem neuen Dokument
+
+    DB->>AI: Neues Dokument eingetroffen
+    AI->>AI: Zusammenfassung erstellen
+    AI->>AI: Tags & Kategorien vergeben
+    AI->>AI: Aktionspunkte extrahieren
+    AI->>AI: Sprache erkennen
+    AI->>AI: Datenschutz-Check (PII)
+    AI->>AI: Semantischen Vektor erzeugen
+    AI->>DB: Angereichertes Dokument speichern
+
+    Agent->>DB: "Was wissen wir über Thema X?"
+    DB->>Agent: Relevante Dokumente + Zusammenfassungen
+```
+
+### Was die AI aus jedem Dokument extrahiert
+
+| Feld | Beispiel |
+|------|---------|
+| **Zusammenfassung** | "Team hat Q2-Roadmap besprochen, Fokus auf Mobile-First" |
+| **Tags** | `q2-roadmap`, `mobile`, `produkt-strategie` |
+| **Aktionspunkte** | "Simon erstellt Mobile-Spec bis 14. April" |
+| **Entscheidungen** | "Mobile-First für Q2", "Desktop-Redesign verschoben" |
+| **Kategorie** | Planning, Standup, Review, Retro, 1:1, Demo, etc. |
+| **Sprache** | Deutsch, Englisch, etc. |
+| **Datenschutz** | Sicher oder Enthält personenbezogene Daten |
+| **Semantischer Vektor** | Ermöglicht Suche nach Bedeutung, nicht nur nach Stichworten |
+
+---
+
+## Wer nutzt die zentrale Datenbank?
+
+```mermaid
+graph TB
+    subgraph "Zentrale Datenbank"
+        DB["Firestore\nKnowledge Base"]
+    end
+
+    subgraph "AI-Agenten via MCP"
+        A1["Meta Ads Agent\nErstellt Kampagnen mit\nWissen über Produkte & Assets"]
+        A2["Google Ads Agent\nOptimiert Anzeigen basierend\nauf Meeting-Entscheidungen"]
+        A3["Recherche-Agent\nBeantwortet Fragen aus\nallen Quellen gleichzeitig"]
+        A4["Reporting-Agent\nErstellt Berichte aus\nERP + Meetings + Tasks"]
+    end
+
+    subgraph "Web-Anwendungen"
+        W1["Internes Dashboard\nTeam-Wissen auf\neinen Blick"]
+        W2["Kunden-Portal\nRelevante Infos\nautomatisch bereitgestellt"]
+        W3["Automatisierungen\nWorkflows basierend\nauf Datenänderungen"]
+    end
+
+    subgraph "LLM-Anwendungen"
+        L1["Chat-Interface\nMitarbeiter fragen\ndirekt die Wissensbasis"]
+        L2["Zusammenfassungen\nAutomatische Briefings\nfür Führungskräfte"]
+        L3["Übersetzungen\nMeeting-Notizen in\nandere Sprachen"]
+    end
+
+    DB --> A1
+    DB --> A2
+    DB --> A3
+    DB --> A4
+    DB --> W1
+    DB --> W2
+    DB --> W3
+    DB --> L1
+    DB --> L2
+    DB --> L3
+
+    style DB fill:#FF6F00,color:#fff,stroke:#FF6F00,stroke-width:3px
+    style A1 fill:#8B5CF6,color:#fff
+    style A2 fill:#8B5CF6,color:#fff
+    style A3 fill:#8B5CF6,color:#fff
+    style A4 fill:#8B5CF6,color:#fff
+    style W1 fill:#3B82F6,color:#fff
+    style W2 fill:#3B82F6,color:#fff
+    style W3 fill:#3B82F6,color:#fff
+    style L1 fill:#7C3AED,color:#fff
+    style L2 fill:#7C3AED,color:#fff
+    style L3 fill:#7C3AED,color:#fff
+```
+
+**Der entscheidende Punkt:** Die zentrale Datenbank ist kein Tool für sich — sie ist das **Fundament**, auf dem beliebig viele AI- und Web-Anwendungen aufgebaut werden können. Jede neue Quelle, die angebunden wird, macht _alle_ Anwendungen gleichzeitig schlauer.
+
+---
+
+## Zwei Arten der Suche
+
+```mermaid
+graph LR
+    subgraph "Tag-basierte Suche"
+        Q1["Zeige alle Planning-Meetings\nzum Thema ERP\naus dem März"]
+        R1["Exakte Treffer\nbasierend auf Tags,\nDatum, Kategorie"]
+    end
+
+    subgraph "Semantische Suche (AI)"
+        Q2["Was wissen wir über\ndie Kundeneinrichtung?"]
+        R2["Findet relevante Dokumente\nauch wenn andere Begriffe\nverwendet wurden"]
+    end
+
+    Q1 --> R1
+    Q2 --> R2
+
+    style Q1 fill:#3B82F6,color:#fff
+    style Q2 fill:#8B5CF6,color:#fff
+    style R1 fill:#E5E7EB,color:#000
+    style R2 fill:#E5E7EB,color:#000
+```
+
+**Tag-basiert:** Schnell und präzise — "Alle Meetings mit Tag `erp-auswahl` vom März"
+
+**Semantisch:** AI-gestützt — "Was wurde zum Thema Kundenbetreuung besprochen?" findet auch Notizen, die von "Kundensupport", "After-Sales" oder "Nachbetreuung" sprechen.
+
+---
+
+## Die drei MCP-Server — Brücken zwischen AI und Tools
+
+```mermaid
+graph TB
+    subgraph "AI-Ebene"
+        Claude["Claude AI"]
+    end
+
+    subgraph "MCP-Server"
+        META["Meta Ads\n36 Tools"]
+        GADS["Google Ads\n10+ Tools"]
+        DAM["Digital Asset Manager\n12 Tools"]
+    end
+
+    subgraph "Zentrale Datenbank"
+        DB["Firestore + Cloud Storage"]
+    end
+
+    subgraph "Externe Plattformen"
+        FB["Facebook / Instagram"]
         GOOGLE["Google Ads"]
-        DRIVE["Google Drive"]
-        FIGMA["Figma"]
-        FIRESTORE["Knowledge Base"]
     end
 
-    User -->|"talks to"| Claude
-    Designer -->|"uploads to"| DRIVE
-    Designer -->|"designs in"| FIGMA
+    Claude -->|"Kampagnen verwalten"| META
+    Claude -->|"Anzeigen verwalten"| GADS
+    Claude -->|"Assets & Wissen\nsuchen und abrufen"| DAM
 
-    Claude -->|"manages ads"| META
-    Claude -->|"manages ads"| GADS
-    Claude -->|"finds assets & knowledge"| DAM
+    META -->|"erstellt & bearbeitet"| FB
+    GADS -->|"erstellt & bearbeitet"| GOOGLE
+    DAM <-->|"liest & schreibt"| DB
 
-    META -->|"creates & edits"| FB
-    GADS -->|"creates & edits"| GOOGLE
-    DAM -->|"syncs from"| DRIVE
-    DAM -->|"exports from"| FIGMA
-    DAM -->|"stores & searches"| FIRESTORE
+    META -.->|"nutzt Assets aus"| DB
+    GADS -.->|"nutzt Assets aus"| DB
 
     style Claude fill:#8B5CF6,color:#fff
     style META fill:#1877F2,color:#fff
     style GADS fill:#4285F4,color:#fff
     style DAM fill:#10B981,color:#fff
+    style DB fill:#FF6F00,color:#fff,stroke:#FF6F00,stroke-width:3px
 ```
 
-**How it works:** Claude talks to three specialized servers. Each server is an expert in one domain — ads, assets, or knowledge. The servers handle all the technical details (APIs, authentication, data formats) so Claude can focus on understanding your intent.
+### Meta Ads Server — 36 Tools
 
----
+> Alles für Facebook- und Instagram-Werbung: Kampagnen erstellen, Zielgruppen definieren, Performance analysieren.
 
-## The Three Servers
+- Kampagnen erstellen, bearbeiten, pausieren, duplizieren
+- Alle Kreativformate: Einzelbild, Karussell, Video, Dynamic Ads
+- Zielgruppen: Interessen, Verhalten, Demografie, Lookalikes
+- Performance: Ausgaben, Impressions, Klicks, Conversions, ROAS
 
-### 1. Meta Ads Server
+### Google Ads Server — 10+ Tools
 
-> Everything you need to run Facebook and Instagram advertising — from campaign creation to performance reporting.
+> Google Search und Display Advertising per Sprache steuern.
 
-```mermaid
-graph LR
-    subgraph "What you can do"
-        A["Create campaigns"]
-        B["Build ad creatives"]
-        C["Define audiences"]
-        D["Check performance"]
-        E["Duplicate & edit"]
-    end
+- Kampagnen- und Anzeigengruppen-Management
+- Keyword- und Zielgruppen-Targeting
+- Performance-Reporting
 
-    subgraph "36 tools including"
-        T1["create_campaign"]
-        T2["create_ad_creative"]
-        T3["get_insights"]
-        T4["search_interests"]
-        T5["upload_ad_image"]
-        T6["estimate_audience_size"]
-    end
+### Digital Asset Manager — 12 Tools
 
-    A --> T1
-    B --> T2
-    C --> T4
-    D --> T3
-    E --> T5
+> Kreativ-Assets und Unternehmenswissen verwalten und durchsuchen.
 
-    style A fill:#1877F2,color:#fff
-    style B fill:#1877F2,color:#fff
-    style C fill:#1877F2,color:#fff
-    style D fill:#1877F2,color:#fff
-    style E fill:#1877F2,color:#fff
-```
-
-**Key capabilities:**
-- Full campaign lifecycle — create, edit, pause, duplicate, delete
-- All creative formats — single image, carousel, video, dynamic ads
-- Audience targeting — interests, behaviors, demographics, locations, lookalikes
-- Performance insights — spend, impressions, clicks, conversions, ROAS
-- Image management — upload, manage, and use images in ads
-- Ryzon-specific defaults — pre-configured tracking, UTM parameters, and DSA compliance
-
----
-
-### 2. Google Ads Server
-
-> Manage Google search and display advertising through natural conversation.
-
-**Key capabilities:**
-- Campaign and ad group management
-- Keyword and audience targeting
-- Performance reporting via GAQL queries
-- Budget and bid management
-
----
-
-### 3. Digital Asset Manager (DAM)
-
-> Your creative assets and team knowledge — organized, searchable, and ready for AI.
-
-```mermaid
-graph TB
-    subgraph "Asset Sources"
-        DRIVE["Google Drive\n(designer uploads)"]
-        FIGMA["Figma\n(design exports)"]
-        DIRECT["Direct Upload\n(programmatic)"]
-    end
-
-    subgraph "Knowledge Sources"
-        GMEET["Google Meet Notes"]
-        SHEET["Config Sheet\n(folder registry)"]
-    end
-
-    subgraph "DAM Server — 12 tools"
-        direction TB
-        SYNC["Sync Engine"]
-        ASSETS["Asset Tools\n• list, search, get\n• upload, tag\n• download URL"]
-        KB["Knowledge Tools\n• query by tags/dates\n• semantic search\n• get full document"]
-    end
-
-    subgraph "Storage"
-        GCS["Cloud Storage\n(images & files)"]
-        FS["Firestore\n(knowledge base)"]
-    end
-
-    DRIVE -->|"hourly sync"| SYNC
-    FIGMA -->|"export frames"| SYNC
-    DIRECT --> ASSETS
-    GMEET -->|"hourly sync"| SYNC
-    SHEET -->|"tells sync\nwhat to watch"| SYNC
-
-    SYNC --> GCS
-    SYNC --> FS
-    ASSETS --> GCS
-    KB --> FS
-
-    style SYNC fill:#10B981,color:#fff
-    style ASSETS fill:#10B981,color:#fff
-    style KB fill:#10B981,color:#fff
-```
-
-**Asset management tools:**
-| Tool | What it does |
+**Asset-Tools:**
+| Tool | Was es macht |
 |------|-------------|
-| `list_assets` | Browse assets by campaign or folder |
-| `search_assets` | Find assets by name, tags, format, or dimensions |
-| `get_asset` | Get full metadata for a specific asset |
-| `get_asset_download_url` | Generate a secure download link (expires in 60 min) |
-| `upload_asset` | Upload a new image or file |
-| `tag_asset` | Add or update tags and metadata |
-| `export_figma_frames` | Export frames from Figma directly to the DAM |
-| `trigger_sync` | Manually start a Drive-to-DAM sync |
-| `sync_status` | Check when the last sync ran |
+| `list_assets` | Assets nach Kampagne durchsuchen |
+| `search_assets` | Nach Name, Tags, Format oder Maßen suchen |
+| `get_asset_download_url` | Sicheren Download-Link generieren |
+| `upload_asset` | Neue Datei hochladen |
+| `tag_asset` | Tags und Metadaten aktualisieren |
+| `export_figma_frames` | Figma-Designs direkt ins DAM exportieren |
 
-**Knowledge base tools:**
-| Tool | What it does |
+**Wissens-Tools:**
+| Tool | Was es macht |
 |------|-------------|
-| `query_knowledge_base` | Search meeting notes by tags, date, series, or type |
-| `get_document` | Retrieve the full content of a specific document |
-| `search_knowledge_base_semantic` | Find documents using natural language (AI-powered) |
+| `query_knowledge_base` | Nach Tags, Datum, Serie oder Typ suchen |
+| `get_document` | Vollständiges Dokument abrufen |
+| `search_knowledge_base_semantic` | Natürlichsprachliche Suche (AI-gestützt) |
 
 ---
 
-## The Knowledge Base — How Meeting Notes Become Searchable
-
-One of the most powerful features: your team's meeting notes are automatically collected, enriched by AI, and made searchable.
-
-```mermaid
-sequenceDiagram
-    participant Team as Team Member
-    participant Drive as Google Drive
-    participant Sheet as Config Sheet
-    participant Sync as Sync Engine
-    participant LLM as Claude Haiku AI
-    participant Voyage as Voyage AI
-    participant DB as Knowledge Base
-
-    Team->>Drive: Takes meeting notes (Google Docs)
-    Team->>Sheet: Registers folder (one-time setup)
-
-    loop Every hour
-        Sync->>Sheet: Read registered folders
-        Sync->>Drive: Check for new documents
-        Sync->>DB: Save new documents
-    end
-
-    Note over LLM,DB: Automatic enrichment (triggered instantly)
-
-    DB->>LLM: New document arrives
-    LLM->>LLM: Analyze content
-    LLM->>DB: Add summary, tags, action items,<br/>decisions, meeting type, language
-    DB->>Voyage: Generate semantic embedding
-    Voyage->>DB: Store vector for search
-
-    Note over LLM,DB: PII check
-    LLM-->>DB: If personal data detected,<br/>move to restricted collection
-```
-
-### What the AI extracts from each meeting note
-
-| Field | Example |
-|-------|---------|
-| **Summary** | "Team reviewed Q2 roadmap priorities and decided to focus on mobile-first approach" |
-| **Tags** | `q2-roadmap`, `mobile`, `product-strategy` |
-| **Action items** | "Simon to draft mobile spec by April 14" |
-| **Key decisions** | "Mobile-first approach for Q2", "Postpone desktop redesign" |
-| **Meeting type** | Planning, Standup, Review, Retro, 1:1, Demo, etc. |
-| **Language** | German, English, etc. |
-| **Sensitivity** | Safe or Contains PII (personal data) |
-
-### Two types of search
-
-**Tag-based search** — fast, exact matching:
-> "Show me all planning meetings tagged with 'erp-selection' from March"
-
-**Semantic search** — AI-powered, finds related content by meaning:
-> "What did we discuss about customer onboarding?"
-> _(Finds notes even if they never mention "onboarding" — maybe they talked about "new customer setup" or "Kundeneinrichtung")_
-
----
-
-## How Designers Fit In
-
-Designers don't need to change anything about how they work.
-
-```mermaid
-graph LR
-    subgraph "Designer's workflow (unchanged)"
-        D1["Design in Figma"]
-        D2["Export to Google Drive"]
-    end
-
-    subgraph "What happens automatically"
-        D3["Sync picks up new files"]
-        D4["Assets appear in the DAM"]
-        D5["AI can use them in ads"]
-    end
-
-    D1 -->|"or export directly"| D4
-    D2 --> D3 --> D4 --> D5
-
-    style D1 fill:#F24E1E,color:#fff
-    style D2 fill:#4285F4,color:#fff
-    style D3 fill:#10B981,color:#fff
-    style D4 fill:#10B981,color:#fff
-    style D5 fill:#8B5CF6,color:#fff
-```
-
-- Designers keep uploading to Google Drive as usual
-- The DAM automatically syncs new files every hour
-- Figma frames can be exported directly into the DAM
-- Assets get tagged and become searchable instantly
-
----
-
-## Onboarding — For Everyone
-
-### For team members (meeting notes)
-
-1. **Share** your meeting notes Drive folder with the service account
-2. **Add a row** to the config spreadsheet (folder ID + your email)
-3. **Done** — your notes will sync within the hour
-
-### For Claude Desktop users
-
-Run one command in Terminal:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/.../install.sh | bash
-```
-
-The installer handles everything:
-- Checks for Python and required tools
-- Installs the MCP servers
-- Configures Claude Desktop
-- Sets up API credentials
-- Provides a step-by-step guide for any manual steps
-
----
-
-## Infrastructure — Where Things Run
+## Datenschutz & Sicherheit
 
 ```mermaid
 graph TB
-    subgraph "Google Cloud Platform (europe-west3)"
-        subgraph "Always Running"
-            CR["Cloud Run\n(DAM Server)"]
-        end
-
-        subgraph "Runs on Schedule"
-            CF1["Meeting Notes Sync\n(every hour)"]
-            CF2["Drive Asset Sync\n(every hour)"]
-        end
-
-        subgraph "Runs on Events"
-            CF3["Document Processor\n(when new doc arrives)"]
-        end
-
-        subgraph "Storage"
-            GCS["Cloud Storage\n(images & files)"]
-            FS["Firestore\n(knowledge base)"]
-        end
+    subgraph "Allgemeiner Zugang"
+        KB["Knowledge Base\n(geprüfte Dokumente)"]
     end
 
-    subgraph "External APIs"
-        META_API["Meta Graph API"]
-        CLAUDE_API["Claude AI API"]
-        VOYAGE_API["Voyage AI API"]
-        DRIVE_API["Google Drive API"]
-        SHEETS_API["Google Sheets API"]
+    subgraph "Eingeschränkter Zugang"
+        KBR["Geschützte Sammlung\n(personenbezogene Daten)"]
     end
 
-    CF1 --> FS
-    CF1 --> DRIVE_API
-    CF1 --> SHEETS_API
-    CF2 --> GCS
-    CF2 --> DRIVE_API
-    CF3 --> FS
-    CF3 --> CLAUDE_API
-    CF3 --> VOYAGE_API
-    CR --> GCS
-    CR --> FS
-
-    style CR fill:#4285F4,color:#fff
-    style CF1 fill:#34A853,color:#fff
-    style CF2 fill:#34A853,color:#fff
-    style CF3 fill:#FBBC04,color:#000
-    style GCS fill:#4285F4,color:#fff
-    style FS fill:#FF6F00,color:#fff
-```
-
-**Cost:** Minimal. Cloud Functions are pay-per-use. Firestore and Cloud Storage cost cents per month at current scale. LLM processing costs ~$0.001 per meeting note.
-
----
-
-## Data Privacy & Security
-
-```mermaid
-graph TB
-    subgraph "General Access"
-        KB["Knowledge Base\n(safe documents)"]
-    end
-
-    subgraph "Restricted Access"
-        KBR["Restricted Collection\n(PII-flagged documents)"]
-    end
-
-    DOC["New Meeting Note"] --> AI["AI Privacy Check"]
-    AI -->|"No personal data"| KB
-    AI -->|"Contains personal data\n(salary, health, etc.)"| KBR
+    DOC["Neues Dokument"] --> AI["AI Datenschutz-Check"]
+    AI -->|"Keine persönlichen Daten"| KB
+    AI -->|"Enthält persönliche Daten\n(Gehalt, Gesundheit, etc.)"| KBR
 
     style KB fill:#10B981,color:#fff
     style KBR fill:#EF4444,color:#fff
     style AI fill:#8B5CF6,color:#fff
 ```
 
-- AI automatically scans every document for personal data
-- Documents with sensitive content are moved to a restricted collection
-- Business emails and professional names are **not** flagged (only truly personal data)
-- Different access levels can be applied to each collection
-- All data stays in the EU (europe-west3 region)
+- AI prüft **jedes Dokument** automatisch auf personenbezogene Daten
+- Sensible Dokumente werden in eine **geschützte Sammlung** verschoben
+- Geschäftliche E-Mails und Namen im beruflichen Kontext werden **nicht** markiert
+- Verschiedene **Zugriffsebenen** pro Sammlung möglich
+- Alle Daten bleiben in der **EU** (Region europe-west3, Frankfurt)
 
 ---
 
-## What's Next
+## So funktioniert das Onboarding
 
-| Phase | Status | What it adds |
-|-------|--------|-------------|
-| **Phase 1** — Asset management | Done | Drive sync, asset search, Figma export |
-| **Phase 2** — AI enrichment | Done | LLM tagging, summaries, vector search, PII detection |
-| **Phase 3** — More sources | Planned | Granola.ai notes, brand guidelines, project briefs |
-| **Phase 4** — Workflows | Planned | Approval flows, versioning, cross-type knowledge graph |
+### Für Team-Mitglieder (Meeting-Notizen)
+
+```mermaid
+graph LR
+    S1["1. Ordner freigeben\nfür Service-Account"] --> S2["2. Zeile in\nConfig-Sheet eintragen"] --> S3["3. Fertig!\nNotizen synchen\nautomatisch"]
+
+    style S1 fill:#3B82F6,color:#fff
+    style S2 fill:#3B82F6,color:#fff
+    style S3 fill:#10B981,color:#fff
+```
+
+### Für Designer
+
+```mermaid
+graph LR
+    D1["Weiter wie bisher\nin Figma und Drive\narbeiten"] --> D2["Sync holt neue\nDateien automatisch\njede Stunde"] --> D3["AI kann Assets\nin Anzeigen\nverwenden"]
+
+    style D1 fill:#F24E1E,color:#fff
+    style D2 fill:#10B981,color:#fff
+    style D3 fill:#8B5CF6,color:#fff
+```
+
+**Kein Workflow ändert sich.** Die Plattform arbeitet im Hintergrund.
 
 ---
 
-## Quick Reference
+## Infrastruktur
 
-| Server | Tools | Purpose |
-|--------|-------|---------|
-| Meta Ads MCP | 36 | Create, manage, and analyze Facebook/Instagram ads |
-| Google Ads MCP | 10+ | Create, manage, and analyze Google ads |
-| DAM MCP | 12 | Manage creative assets and team knowledge |
+```mermaid
+graph TB
+    subgraph "Google Cloud Platform — Frankfurt (europe-west3)"
+        subgraph "Dauerhaft aktiv"
+            CR["Cloud Run\nDAM-Server"]
+        end
 
-| Automation | Frequency | What it does |
-|-----------|-----------|-------------|
-| Drive Asset Sync | Hourly | Copies new images from Drive to the DAM |
-| Meeting Notes Sync | Hourly | Copies new meeting notes to the knowledge base |
-| Document Processor | Instant | AI-enriches new documents (tags, summary, embeddings) |
+        subgraph "Stündlich geplant"
+            CF1["Meeting-Sync"]
+            CF2["Asset-Sync"]
+        end
+
+        subgraph "Event-gesteuert"
+            CF3["Dokument-Prozessor\n(AI-Anreicherung)"]
+        end
+
+        subgraph "Zentrale Datenbank"
+            FS["Firestore"]
+            GCS["Cloud Storage"]
+        end
+    end
+
+    subgraph "Externe Dienste"
+        CLAUDE_API["Claude AI"]
+        VOYAGE["Voyage AI\n(Vektoren)"]
+        META_API["Meta API"]
+        DRIVE_API["Google Drive"]
+    end
+
+    CF1 --> FS
+    CF2 --> GCS
+    CF3 --> FS
+    CF3 --> CLAUDE_API
+    CF3 --> VOYAGE
+    CR --> FS
+    CR --> GCS
+
+    style FS fill:#FF6F00,color:#fff,stroke:#FF6F00,stroke-width:3px
+    style GCS fill:#4285F4,color:#fff
+    style CR fill:#4285F4,color:#fff
+    style CF1 fill:#34A853,color:#fff
+    style CF2 fill:#34A853,color:#fff
+    style CF3 fill:#FBBC04,color:#000
+```
+
+**Kosten:** Minimal. Cloud Functions zahlen nur bei Nutzung. Firestore und Cloud Storage kosten Cent pro Monat. AI-Verarbeitung kostet ca. 0,001 EUR pro Dokument.
 
 ---
 
-*Built by the Ryzon team. Powered by Claude, Meta APIs, Google APIs, Figma, and a lot of automation.*
+## Roadmap
+
+```mermaid
+graph LR
+    subgraph "Erledigt"
+        P1["Phase 1\nAsset-Management\nDrive-Sync, Figma-Export"]
+        P2["Phase 2\nAI-Anreicherung\nLLM-Tags, Vektorsuche,\nPII-Erkennung"]
+    end
+
+    subgraph "Geplant"
+        P3["Phase 3\nMehr Quellen\nGranola, Asana,\nERP, E-Mail"]
+        P4["Phase 4\nWorkflows\nGenehmigungen,\nWissens-Graph"]
+    end
+
+    P1 --> P2 --> P3 --> P4
+
+    style P1 fill:#10B981,color:#fff
+    style P2 fill:#10B981,color:#fff
+    style P3 fill:#3B82F6,color:#fff
+    style P4 fill:#3B82F6,color:#fff
+```
+
+| Phase | Status | Was kommt dazu |
+|-------|--------|---------------|
+| **Phase 1** — Asset-Management | Fertig | Drive-Sync, Asset-Suche, Figma-Export |
+| **Phase 2** — AI-Anreicherung | Fertig | LLM-Tagging, Zusammenfassungen, Vektorsuche, PII-Erkennung |
+| **Phase 3** — Weitere Quellen | Geplant | Granola.ai, Asana, ERP-Daten, E-Mails |
+| **Phase 4** — Workflows & Graph | Geplant | Genehmigungen, Versionierung, Wissens-Graph über alle Quellen |
+
+---
+
+## Zusammenfassung
+
+```mermaid
+graph TB
+    subgraph "Viele Quellen"
+        S1["Drive"]
+        S2["Asana"]
+        S3["ERP"]
+        S4["E-Mail"]
+        S5["Figma"]
+        S6["Granola"]
+    end
+
+    subgraph "Eine Datenbank"
+        DB["Zentrale\nKnowledge Base"]
+    end
+
+    subgraph "Viele Anwendungen"
+        A1["AI-Agenten"]
+        A2["Web-Apps"]
+        A3["LLM-Chat"]
+        A4["Dashboards"]
+        A5["Automatisierungen"]
+    end
+
+    S1 --> DB
+    S2 --> DB
+    S3 --> DB
+    S4 --> DB
+    S5 --> DB
+    S6 --> DB
+
+    DB --> A1
+    DB --> A2
+    DB --> A3
+    DB --> A4
+    DB --> A5
+
+    style DB fill:#FF6F00,color:#fff,stroke:#FF6F00,stroke-width:4px
+```
+
+**Viele Quellen rein. Eine Datenbank. Viele Anwendungen raus.**
+
+Das ist das Fundament. Jede neue Quelle macht alle Anwendungen schlauer. Jede neue Anwendung hat sofort Zugriff auf alles.
+
+---
+
+*Gebaut vom Ryzon-Team. Angetrieben von Claude, Meta APIs, Google APIs, Figma und einer Menge Automatisierung.*
