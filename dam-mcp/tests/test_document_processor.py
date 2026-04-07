@@ -256,3 +256,40 @@ class TestLLMEnrichment:
         mock_anthropic.messages.create.return_value = mock_response
         result = mod._extract_with_llm(mock_anthropic, "Title", "Content")
         assert result is None
+
+
+class TestEmbeddingGeneration:
+    @patch.dict("os.environ", {"GCP_PROJECT_ID": "test-project", "VOYAGE_API_KEY": "test-key"})
+    def test_generate_embedding_success(self):
+        mod = _make_processor_module()
+        mock_voyage = MagicMock()
+        mock_result = MagicMock()
+        mock_result.embeddings = [[0.1, 0.2, 0.3] * 341 + [0.1]]  # 1024 dims
+        mock_voyage.embed.return_value = mock_result
+        embedding = mod._generate_embedding(mock_voyage, "Title", "Summary", "Content here")
+        assert embedding is not None
+        assert len(embedding) == 1024
+        mock_voyage.embed.assert_called_once()
+        call_args = mock_voyage.embed.call_args
+        assert call_args[1]["model"] == "voyage-3-lite"
+
+    @patch.dict("os.environ", {"GCP_PROJECT_ID": "test-project", "VOYAGE_API_KEY": "test-key"})
+    def test_generate_embedding_api_failure_returns_none(self):
+        mod = _make_processor_module()
+        mock_voyage = MagicMock()
+        mock_voyage.embed.side_effect = Exception("API error")
+        embedding = mod._generate_embedding(mock_voyage, "Title", "Summary", "Content")
+        assert embedding is None
+
+    @patch.dict("os.environ", {"GCP_PROJECT_ID": "test-project", "VOYAGE_API_KEY": "test-key"})
+    def test_generate_embedding_truncates_long_content(self):
+        mod = _make_processor_module()
+        mock_voyage = MagicMock()
+        mock_result = MagicMock()
+        mock_result.embeddings = [[0.1] * 1024]
+        mock_voyage.embed.return_value = mock_result
+        long_content = "x" * 20000
+        mod._generate_embedding(mock_voyage, "Title", "Summary", long_content)
+        call_args = mock_voyage.embed.call_args
+        input_text = call_args[1]["input"][0]
+        assert len(input_text) < 8200

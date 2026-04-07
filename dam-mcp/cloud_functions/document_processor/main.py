@@ -237,6 +237,23 @@ def _extract_with_llm(client, title: str, content: str) -> dict | None:
         return None
 
 
+MAX_CONTENT_CHARS = 8000
+
+def _generate_embedding(client, title: str, summary: str, content: str) -> list[float] | None:
+    """Generate a vector embedding via Voyage AI. Returns None on failure."""
+    try:
+        truncated_content = content[:MAX_CONTENT_CHARS]
+        input_text = f"{title}\n\n{summary}\n\n{truncated_content}"
+        result = client.embed(
+            input=[input_text],
+            model="voyage-3-lite",
+            input_type="document",
+        )
+        return result.embeddings[0]
+    except Exception:
+        return None
+
+
 def _get_firestore_client():
     import os
     project_id = os.environ.get("GCP_PROJECT_ID")
