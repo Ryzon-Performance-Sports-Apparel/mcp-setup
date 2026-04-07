@@ -46,7 +46,7 @@ gcloud run deploy $SERVICE_NAME \
   --source=. \
   --env-vars-file="$ENV_FILE" \
   --allow-unauthenticated \
-  --memory=256Mi \
+  --memory=1Gi \
   --cpu=1 \
   --min-instances=0 \
   --max-instances=1 \
