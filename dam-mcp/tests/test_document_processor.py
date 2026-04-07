@@ -293,3 +293,141 @@ class TestEmbeddingGeneration:
         call_args = mock_voyage.embed.call_args
         input_text = call_args[1]["input"][0]
         assert len(input_text) < 8200
+
+
+class TestProcessDocumentWithLLM:
+    @patch.dict("os.environ", {
+        "GCP_PROJECT_ID": "test-project",
+        "ANTHROPIC_API_KEY": "test-key",
+        "VOYAGE_API_KEY": "test-key",
+    })
+    def test_process_with_llm_enrichment(self):
+        mod = _make_processor_module()
+
+        mock_fs = MagicMock()
+        mock_doc_ref = MagicMock()
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = {
+            "title": "Sprint Planning 2026-04-07",
+            "content": "We planned the sprint. alice@co.com will handle the auth module.",
+            "tags": ["engineering"],
+            "processing_status": "raw",
+        }
+        mock_doc_ref.get.return_value = mock_doc
+        mock_fs.collection.return_value.document.return_value = mock_doc_ref
+
+        llm_result = {
+            "tags": ["sprint-planning", "auth-module"],
+            "summary": "Sprint planned with auth module as top priority.",
+            "sensitivity": "safe",
+            "action_items": [{"task": "Implement auth module", "assignee": "alice@co.com"}],
+            "key_decisions": ["Auth module is top priority"],
+            "meeting_type": "planning",
+            "language": "en",
+        }
+        mock_embedding = [0.1] * 1024
+
+        cloud_event = MagicMock()
+        cloud_event.__getitem__ = lambda self, key: "documents/knowledge_base/doc1" if key == "subject" else None
+
+        with patch.object(mod, "_get_firestore_client", return_value=mock_fs), \
+             patch.object(mod, "_get_anthropic_client", return_value=MagicMock()), \
+             patch.object(mod, "_get_voyage_client", return_value=MagicMock()), \
+             patch.object(mod, "_extract_with_llm", return_value=llm_result), \
+             patch.object(mod, "_generate_embedding", return_value=mock_embedding):
+            mod.process_document(cloud_event)
+
+        final_update = mock_doc_ref.update.call_args_list[-1][0][0]
+        assert final_update["processing_status"] == "processed"
+        assert final_update["llm_enriched"] is True
+        assert final_update["summary"] == "Sprint planned with auth module as top priority."
+        assert "sprint-planning" in final_update["tags"]
+        assert "engineering" in final_update["tags"]
+        assert final_update["meeting_type"] == "planning"
+        assert final_update["embedding"] is not None
+
+    @patch.dict("os.environ", {
+        "GCP_PROJECT_ID": "test-project",
+    })
+    def test_process_without_api_keys_falls_back_to_rule_based(self):
+        mod = _make_processor_module()
+
+        mock_fs = MagicMock()
+        mock_doc_ref = MagicMock()
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = {
+            "title": "Standup 2026-04-07",
+            "content": "Quick sync on progress.",
+            "tags": [],
+            "processing_status": "raw",
+        }
+        mock_doc_ref.get.return_value = mock_doc
+        mock_fs.collection.return_value.document.return_value = mock_doc_ref
+
+        cloud_event = MagicMock()
+        cloud_event.__getitem__ = lambda self, key: "documents/knowledge_base/doc2" if key == "subject" else None
+
+        with patch.object(mod, "_get_firestore_client", return_value=mock_fs):
+            mod.process_document(cloud_event)
+
+        final_update = mock_doc_ref.update.call_args_list[-1][0][0]
+        assert final_update["processing_status"] == "processed"
+        assert final_update["llm_enriched"] is False
+
+
+class TestPIIHandling:
+    @patch.dict("os.environ", {
+        "GCP_PROJECT_ID": "test-project",
+        "ANTHROPIC_API_KEY": "test-key",
+    })
+    def test_pii_document_moved_to_restricted(self):
+        mod = _make_processor_module()
+
+        mock_fs = MagicMock()
+        mock_doc_ref = MagicMock()
+        mock_restricted_doc_ref = MagicMock()
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = {
+            "title": "HR Review 2026-04-07",
+            "content": "Discussed salary adjustments for the team.",
+            "tags": [],
+            "processing_status": "raw",
+        }
+        mock_doc_ref.get.return_value = mock_doc
+
+        def collection_router(name):
+            mock_col = MagicMock()
+            if name == "knowledge_base_restricted":
+                mock_col.document.return_value = mock_restricted_doc_ref
+            else:
+                mock_col.document.return_value = mock_doc_ref
+            return mock_col
+
+        mock_fs.collection.side_effect = collection_router
+
+        llm_result = {
+            "tags": ["hr", "salary"],
+            "summary": "Salary adjustments discussed.",
+            "sensitivity": "contains_pii",
+            "action_items": [],
+            "key_decisions": [],
+            "meeting_type": "review",
+            "language": "en",
+        }
+
+        cloud_event = MagicMock()
+        cloud_event.__getitem__ = lambda self, key: "documents/knowledge_base/pii_doc" if key == "subject" else None
+
+        with patch.object(mod, "_get_firestore_client", return_value=mock_fs), \
+             patch.object(mod, "_get_anthropic_client", return_value=MagicMock()), \
+             patch.object(mod, "_get_voyage_client", return_value=None), \
+             patch.object(mod, "_extract_with_llm", return_value=llm_result):
+            mod.process_document(cloud_event)
+
+        mock_restricted_doc_ref.set.assert_called_once()
+        written_doc = mock_restricted_doc_ref.set.call_args[0][0]
+        assert written_doc["sensitivity"] == "contains_pii"
+        mock_doc_ref.delete.assert_called_once()

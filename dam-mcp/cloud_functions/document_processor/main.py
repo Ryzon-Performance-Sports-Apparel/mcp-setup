@@ -254,6 +254,22 @@ def _generate_embedding(client, title: str, summary: str, content: str) -> list[
         return None
 
 
+def _get_anthropic_client():
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return None
+    import anthropic
+    return anthropic.Anthropic(api_key=api_key)
+
+
+def _get_voyage_client():
+    api_key = os.environ.get("VOYAGE_API_KEY")
+    if not api_key:
+        return None
+    import voyageai
+    return voyageai.Client(api_key=api_key)
+
+
 def _get_firestore_client():
     import os
     project_id = os.environ.get("GCP_PROJECT_ID")
@@ -265,11 +281,11 @@ def _get_firestore_client():
 def process_document(cloud_event: CloudEvent):
     """Process a newly created document in the knowledge_base collection.
 
-    Extracts participants, meeting date, and topic tags using rule-based logic.
-    Updates the document with extracted data and sets processing_status to 'processed'.
+    Step 1: Rule-based extraction (dates, emails, keyword tags)
+    Step 2: LLM enrichment via Claude Haiku (tags, summary, PII, action items, etc.)
+    Step 3: Vector embedding via Voyage AI
+    Step 4: PII handling (move to restricted collection if flagged)
     """
-    # Extract document path from the CloudEvent subject
-    # subject format: "documents/knowledge_base/{doc_id}"
     subject = cloud_event["subject"]
     parts = subject.split("/")
     if len(parts) < 3:
@@ -288,35 +304,63 @@ def process_document(cloud_event: CloudEvent):
     title = data.get("title", "")
     content = data.get("content", "")
 
-    # Set processing status
     doc_ref.update({"processing_status": "processing"})
 
     try:
-        # Extract participants from content
+        # Step 1: Rule-based extraction
         participants = _extract_emails(content)
-
-        # Parse meeting date from title
         meeting_date = _parse_date_from_title(title)
+        rule_tags = _extract_topic_tags(title, content)
 
-        # Extract topic tags
-        topic_tags = _extract_topic_tags(title, content)
-
-        # Merge with existing tags (no duplicates)
         existing_tags = data.get("tags", []) or []
-        merged_tags = list(dict.fromkeys(existing_tags + topic_tags))
+        merged_tags = list(dict.fromkeys(existing_tags + rule_tags))
 
-        # Build update
         updates = {
             "participants": participants if participants else None,
             "meeting_date": meeting_date,
             "tags": merged_tags,
-            "sensitivity": "unreviewed",
+            "sensitivity": "safe",
             "processing_status": "processed",
             "processed_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": firestore.SERVER_TIMESTAMP,
+            "llm_enriched": False,
         }
 
-        doc_ref.update(updates)
+        # Step 2: LLM enrichment
+        anthropic_client = _get_anthropic_client()
+        if anthropic_client:
+            llm_result = _extract_with_llm(anthropic_client, title, content)
+            if llm_result:
+                updates["llm_enriched"] = True
+                updates["summary"] = llm_result.get("summary")
+                updates["sensitivity"] = llm_result.get("sensitivity", "safe")
+                updates["action_items"] = llm_result.get("action_items", [])
+                updates["key_decisions"] = llm_result.get("key_decisions", [])
+                updates["meeting_type"] = llm_result.get("meeting_type")
+                updates["language"] = llm_result.get("language")
+                llm_tags = llm_result.get("tags", [])
+                updates["tags"] = list(dict.fromkeys(merged_tags + llm_tags))
+
+        # Step 3: Vector embedding
+        summary_for_embedding = updates.get("summary", "")
+        voyage_client = _get_voyage_client()
+        if voyage_client:
+            embedding = _generate_embedding(voyage_client, title, summary_for_embedding, content)
+            if embedding:
+                from google.cloud.firestore_v1.vector import Vector
+                updates["embedding"] = Vector(embedding)
+
+        # Step 4: PII handling
+        if updates.get("sensitivity") == "contains_pii":
+            full_doc = {**data, **updates}
+            full_doc.pop("id", None)
+            full_doc["created_at"] = firestore.SERVER_TIMESTAMP
+            full_doc["updated_at"] = firestore.SERVER_TIMESTAMP
+            fs_client.collection("knowledge_base_restricted").document(doc_id).set(full_doc)
+            doc_ref.delete()
+        else:
+            doc_ref.update(updates)
+
     except Exception as e:
         doc_ref.update({
             "processing_status": "failed",
