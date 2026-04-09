@@ -163,8 +163,61 @@ EXTRACT_TOOL = {
             },
             "sensitivity": {
                 "type": "string",
-                "enum": ["safe", "contains_pii"],
-                "description": "Flag 'contains_pii' only for genuinely personal data (health info, salary, personal phone/address). Business emails and professional names are NOT PII.",
+                "enum": ["public", "internal", "confidential", "restricted"],
+                "description": (
+                    "'public': General knowledge, project updates, technical docs. "
+                    "'internal': All-hands content, internal strategy — not for external parties. "
+                    "'confidential': Contains feedback about individuals, client-specific financials, HR processes. "
+                    "'restricted': PII (health, salary, home addresses), legal privileged."
+                ),
+            },
+            "sensitivity_reasons": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "enum": [
+                        "pii", "salary_compensation", "performance_feedback",
+                        "interpersonal_opinion", "hr_disciplinary", "client_financials",
+                        "strategic_confidential", "legal_privileged",
+                    ],
+                },
+                "description": "Reasons for the sensitivity classification. List all that apply.",
+            },
+            "content_categories": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "enum": [
+                        "project_update", "technical", "strategy",
+                        "hr_process", "performance_review", "compensation",
+                        "client_data", "legal", "interpersonal_feedback",
+                        "financial", "product_roadmap",
+                    ],
+                },
+                "description": "What the document is about. Multiple categories can apply.",
+            },
+            "mentioned_persons": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "email": {
+                            "type": "string",
+                            "description": "Email if identifiable from context, otherwise omit.",
+                        },
+                        "context": {
+                            "type": "string",
+                            "enum": [
+                                "participant", "discussed_positively",
+                                "discussed_neutrally", "feedback_subject",
+                                "decision_maker",
+                            ],
+                        },
+                    },
+                    "required": ["name", "context"],
+                },
+                "description": "People mentioned in the document and their role/context.",
             },
             "action_items": {
                 "type": "array",
@@ -192,7 +245,11 @@ EXTRACT_TOOL = {
                 "description": "ISO 639-1 code of the primary language (e.g. 'en', 'de')",
             },
         },
-        "required": ["tags", "summary", "sensitivity", "action_items", "key_decisions", "meeting_type", "language"],
+        "required": [
+            "tags", "summary", "sensitivity", "sensitivity_reasons",
+            "content_categories", "mentioned_persons",
+            "action_items", "key_decisions", "meeting_type", "language",
+        ],
     },
 }
 
@@ -201,8 +258,22 @@ SYSTEM_PROMPT = (
     "Guidelines:\n"
     "- tags: Be specific — use project names, team names, and topic-specific terms rather than generic words. Include 3-8 tags.\n"
     "- summary: Write 2-3 sentences covering what was discussed and what was decided.\n"
-    "- sensitivity: Flag 'contains_pii' ONLY for genuinely personal data such as health information, salary figures, "
-    "or personal phone numbers and home addresses. Business emails and professional names are NOT PII — mark those as 'safe'.\n"
+    "- sensitivity: Use four levels:\n"
+    "  * 'public' — general knowledge anyone can see (project updates, technical docs, public announcements)\n"
+    "  * 'internal' — for org members only (strategy discussions, all-hands content, internal roadmaps)\n"
+    "  * 'confidential' — contains opinions about people, client financials, HR topics, performance discussions\n"
+    "  * 'restricted' — personal data (health info, salary figures, home addresses), legal privileged content\n"
+    "  When unsure, classify UP (more restrictive). 1:1 meetings should default to 'confidential' minimum.\n"
+    "- sensitivity_reasons: List ALL applicable reasons for your sensitivity classification.\n"
+    "- content_categories: What the document is ABOUT — can list multiple categories.\n"
+    "- mentioned_persons: List people discussed in the document (not just attendees). The 'context' field is critical:\n"
+    "  * 'participant' — attended the meeting or contributed to the discussion\n"
+    "  * 'feedback_subject' — someone feedback was given ABOUT, even if they attended. Examples: 'I had mixed feelings about X', "
+    "'X needs to improve at Y', 'we should talk to X about their performance'\n"
+    "  * 'discussed_positively' or 'discussed_neutrally' — mentioned but not evaluated negatively\n"
+    "  * 'decision_maker' — made or approved a key decision\n"
+    "  Be conservative with feedback_subject — if in doubt, mark as feedback_subject rather than discussed_neutrally.\n"
+    "  Include email addresses only when they appear in the content.\n"
     "- action_items: List every concrete task with its assignee and due date when mentioned.\n"
     "- key_decisions: List only firm, concrete decisions — not discussion points or open questions.\n"
     "- meeting_type: Choose the single best-fitting type from the allowed values.\n"
@@ -282,9 +353,9 @@ def process_document(cloud_event: CloudEvent):
     """Process a newly created document in the knowledge_base collection.
 
     Step 1: Rule-based extraction (dates, emails, keyword tags)
-    Step 2: LLM enrichment via Claude Haiku (tags, summary, PII, action items, etc.)
+    Step 2: LLM enrichment via Claude Haiku (tags, summary, sensitivity, action items, etc.)
     Step 3: Vector embedding via Voyage AI
-    Step 4: PII handling (move to restricted collection if flagged)
+    Step 4: Write updates (single collection — access control is policy-based)
     """
     subject = cloud_event["subject"]
     parts = subject.split("/")
@@ -319,7 +390,10 @@ def process_document(cloud_event: CloudEvent):
             "participants": data.get("participants") or (participants if participants else None),
             "meeting_date": data.get("meeting_date") or meeting_date,
             "tags": merged_tags,
-            "sensitivity": "safe",
+            "sensitivity": "confidential",  # fail-secure: default to confidential
+            "sensitivity_reasons": [],
+            "content_categories": [],
+            "mentioned_persons": [],
             "processing_status": "processed",
             "processed_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": firestore.SERVER_TIMESTAMP,
@@ -333,13 +407,22 @@ def process_document(cloud_event: CloudEvent):
             if llm_result:
                 updates["llm_enriched"] = True
                 updates["summary"] = llm_result.get("summary")
-                updates["sensitivity"] = llm_result.get("sensitivity", "safe")
+                updates["sensitivity"] = llm_result.get("sensitivity", "internal")
+                updates["sensitivity_reasons"] = llm_result.get("sensitivity_reasons", [])
+                updates["content_categories"] = llm_result.get("content_categories", [])
+                updates["mentioned_persons"] = llm_result.get("mentioned_persons", [])
                 updates["action_items"] = llm_result.get("action_items", [])
                 updates["key_decisions"] = llm_result.get("key_decisions", [])
                 updates["meeting_type"] = llm_result.get("meeting_type")
                 updates["language"] = llm_result.get("language")
                 llm_tags = llm_result.get("tags", [])
                 updates["tags"] = list(dict.fromkeys(merged_tags + llm_tags))
+
+                # Enforce minimum sensitivity for 1:1 meetings
+                if updates.get("meeting_type") == "1on1" and updates["sensitivity"] == "public":
+                    updates["sensitivity"] = "confidential"
+                    if "performance_feedback" not in updates["sensitivity_reasons"]:
+                        updates["sensitivity_reasons"].append("performance_feedback")
 
         # Step 3: Vector embedding
         summary_for_embedding = updates.get("summary", "")
@@ -350,16 +433,8 @@ def process_document(cloud_event: CloudEvent):
                 from google.cloud.firestore_v1.vector import Vector
                 updates["embedding"] = Vector(embedding)
 
-        # Step 4: PII handling
-        if updates.get("sensitivity") == "contains_pii":
-            full_doc = {**data, **updates}
-            full_doc.pop("id", None)
-            full_doc["created_at"] = firestore.SERVER_TIMESTAMP
-            full_doc["updated_at"] = firestore.SERVER_TIMESTAMP
-            fs_client.collection("knowledge_base_restricted").document(doc_id).set(full_doc)
-            doc_ref.delete()
-        else:
-            doc_ref.update(updates)
+        # Step 4: Write updates (single collection — access control is policy-based)
+        doc_ref.update(updates)
 
     except Exception as e:
         doc_ref.update({

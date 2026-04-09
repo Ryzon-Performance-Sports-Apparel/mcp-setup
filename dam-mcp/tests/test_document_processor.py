@@ -214,7 +214,10 @@ class TestLLMEnrichment:
         mock_tool_block.input = {
             "tags": ["erp-selection", "vendor-evaluation"],
             "summary": "Team discussed ERP vendor options and narrowed to two finalists.",
-            "sensitivity": "safe",
+            "sensitivity": "internal",
+            "sensitivity_reasons": ["strategic_confidential"],
+            "content_categories": ["strategy", "project_update"],
+            "mentioned_persons": [{"name": "Simon", "context": "participant"}],
             "action_items": [{"task": "Schedule demo with Odoo", "assignee": "Simon", "due": "2026-04-14"}],
             "key_decisions": ["Shortlisted Odoo and NetSuite"],
             "meeting_type": "review",
@@ -225,7 +228,7 @@ class TestLLMEnrichment:
         result = mod._extract_with_llm(mock_anthropic, "ERP Review Meeting", "We reviewed Odoo and NetSuite...")
         assert result["tags"] == ["erp-selection", "vendor-evaluation"]
         assert result["summary"].startswith("Team discussed")
-        assert result["sensitivity"] == "safe"
+        assert result["sensitivity"] == "internal"
         assert len(result["action_items"]) == 1
         assert result["action_items"][0]["assignee"] == "Simon"
         assert result["meeting_type"] == "review"
@@ -320,7 +323,10 @@ class TestProcessDocumentWithLLM:
         llm_result = {
             "tags": ["sprint-planning", "auth-module"],
             "summary": "Sprint planned with auth module as top priority.",
-            "sensitivity": "safe",
+            "sensitivity": "internal",
+            "sensitivity_reasons": [],
+            "content_categories": ["project_update", "technical"],
+            "mentioned_persons": [{"name": "alice", "email": "alice@co.com", "context": "participant"}],
             "action_items": [{"task": "Implement auth module", "assignee": "alice@co.com"}],
             "key_decisions": ["Auth module is top priority"],
             "meeting_type": "planning",
@@ -377,17 +383,17 @@ class TestProcessDocumentWithLLM:
         assert final_update["llm_enriched"] is False
 
 
-class TestPIIHandling:
+class TestSensitivityLevels:
     @patch.dict("os.environ", {
         "GCP_PROJECT_ID": "test-project",
         "ANTHROPIC_API_KEY": "test-key",
     })
-    def test_pii_document_moved_to_restricted(self):
+    def test_restricted_document_stays_in_knowledge_base(self):
+        """Documents are no longer moved to a restricted collection — access control is policy-based."""
         mod = _make_processor_module()
 
         mock_fs = MagicMock()
         mock_doc_ref = MagicMock()
-        mock_restricted_doc_ref = MagicMock()
         mock_doc = MagicMock()
         mock_doc.exists = True
         mock_doc.to_dict.return_value = {
@@ -397,21 +403,15 @@ class TestPIIHandling:
             "processing_status": "raw",
         }
         mock_doc_ref.get.return_value = mock_doc
-
-        def collection_router(name):
-            mock_col = MagicMock()
-            if name == "knowledge_base_restricted":
-                mock_col.document.return_value = mock_restricted_doc_ref
-            else:
-                mock_col.document.return_value = mock_doc_ref
-            return mock_col
-
-        mock_fs.collection.side_effect = collection_router
+        mock_fs.collection.return_value.document.return_value = mock_doc_ref
 
         llm_result = {
             "tags": ["hr", "salary"],
             "summary": "Salary adjustments discussed.",
-            "sensitivity": "contains_pii",
+            "sensitivity": "restricted",
+            "sensitivity_reasons": ["salary_compensation"],
+            "content_categories": ["compensation", "hr_process"],
+            "mentioned_persons": [],
             "action_items": [],
             "key_decisions": [],
             "meeting_type": "review",
@@ -419,7 +419,7 @@ class TestPIIHandling:
         }
 
         cloud_event = MagicMock()
-        cloud_event.__getitem__ = lambda self, key: "documents/knowledge_base/pii_doc" if key == "subject" else None
+        cloud_event.__getitem__ = lambda self, key: "documents/knowledge_base/sensitive_doc" if key == "subject" else None
 
         with patch.object(mod, "_get_firestore_client", return_value=mock_fs), \
              patch.object(mod, "_get_anthropic_client", return_value=MagicMock()), \
@@ -427,10 +427,92 @@ class TestPIIHandling:
              patch.object(mod, "_extract_with_llm", return_value=llm_result):
             mod.process_document(cloud_event)
 
-        mock_restricted_doc_ref.set.assert_called_once()
-        written_doc = mock_restricted_doc_ref.set.call_args[0][0]
-        assert written_doc["sensitivity"] == "contains_pii"
-        mock_doc_ref.delete.assert_called_once()
+        # Document stays in knowledge_base — no delete, no restricted collection
+        mock_doc_ref.delete.assert_not_called()
+        final_update = mock_doc_ref.update.call_args_list[-1][0][0]
+        assert final_update["sensitivity"] == "restricted"
+        assert "salary_compensation" in final_update["sensitivity_reasons"]
+        assert "compensation" in final_update["content_categories"]
+
+    @patch.dict("os.environ", {
+        "GCP_PROJECT_ID": "test-project",
+        "ANTHROPIC_API_KEY": "test-key",
+    })
+    def test_1on1_public_upgraded_to_confidential(self):
+        """1:1 meetings classified as public get upgraded to confidential."""
+        mod = _make_processor_module()
+
+        mock_fs = MagicMock()
+        mock_doc_ref = MagicMock()
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = {
+            "title": "Simon / Alice 1:1",
+            "content": "Discussed project progress.",
+            "tags": [],
+            "processing_status": "raw",
+        }
+        mock_doc_ref.get.return_value = mock_doc
+        mock_fs.collection.return_value.document.return_value = mock_doc_ref
+
+        llm_result = {
+            "tags": ["1on1", "project-update"],
+            "summary": "Regular 1:1 check-in on project progress.",
+            "sensitivity": "public",
+            "sensitivity_reasons": [],
+            "content_categories": ["project_update"],
+            "mentioned_persons": [
+                {"name": "Simon", "context": "participant"},
+                {"name": "Alice", "context": "participant"},
+            ],
+            "action_items": [],
+            "key_decisions": [],
+            "meeting_type": "1on1",
+            "language": "en",
+        }
+
+        cloud_event = MagicMock()
+        cloud_event.__getitem__ = lambda self, key: "documents/knowledge_base/1on1_doc" if key == "subject" else None
+
+        with patch.object(mod, "_get_firestore_client", return_value=mock_fs), \
+             patch.object(mod, "_get_anthropic_client", return_value=MagicMock()), \
+             patch.object(mod, "_get_voyage_client", return_value=None), \
+             patch.object(mod, "_extract_with_llm", return_value=llm_result):
+            mod.process_document(cloud_event)
+
+        final_update = mock_doc_ref.update.call_args_list[-1][0][0]
+        assert final_update["sensitivity"] == "confidential"
+        assert "performance_feedback" in final_update["sensitivity_reasons"]
+
+    @patch.dict("os.environ", {
+        "GCP_PROJECT_ID": "test-project",
+    })
+    def test_fail_secure_defaults_to_confidential(self):
+        """Without LLM enrichment, sensitivity defaults to confidential (fail-secure)."""
+        mod = _make_processor_module()
+
+        mock_fs = MagicMock()
+        mock_doc_ref = MagicMock()
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = {
+            "title": "Some Meeting",
+            "content": "Some content.",
+            "tags": [],
+            "processing_status": "raw",
+        }
+        mock_doc_ref.get.return_value = mock_doc
+        mock_fs.collection.return_value.document.return_value = mock_doc_ref
+
+        cloud_event = MagicMock()
+        cloud_event.__getitem__ = lambda self, key: "documents/knowledge_base/no_llm" if key == "subject" else None
+
+        with patch.object(mod, "_get_firestore_client", return_value=mock_fs):
+            mod.process_document(cloud_event)
+
+        final_update = mock_doc_ref.update.call_args_list[-1][0][0]
+        assert final_update["sensitivity"] == "confidential"
+        assert final_update["llm_enriched"] is False
 
 
 class TestMetadataPreservation:
@@ -460,7 +542,13 @@ class TestMetadataPreservation:
         llm_result = {
             "tags": ["vendor-evaluation"],
             "summary": "ERP selection discussed.",
-            "sensitivity": "safe",
+            "sensitivity": "internal",
+            "sensitivity_reasons": ["strategic_confidential"],
+            "content_categories": ["strategy"],
+            "mentioned_persons": [
+                {"name": "Simon Heinken", "context": "participant"},
+                {"name": "Moritz Barmann", "context": "participant"},
+            ],
             "action_items": [],
             "key_decisions": ["Odoo shortlisted"],
             "meeting_type": "sync",
