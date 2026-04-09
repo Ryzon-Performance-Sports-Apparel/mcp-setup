@@ -2,6 +2,12 @@
 
 from dataclasses import dataclass, field
 
+from .firestore import get_client
+
+COLLECTION_ACCESS_ROLES = "_access_roles"
+COLLECTION_ACCESS_POLICIES = "_access_policies"
+INTERNAL_DOMAIN = "ryzon.net"
+
 
 @dataclass
 class UserContext:
@@ -97,3 +103,38 @@ class PolicyEngine:
             return []
         policy = max(matching, key=lambda p: p["priority"])
         return policy.get("allow_sensitivity", [])
+
+    def resolve_user(self, email: str) -> UserContext:
+        """Look up a user's roles and attributes from the _access_roles collection.
+
+        Falls back to sensible defaults:
+        - Known domain (ryzon.net): roles=["employee"], employment_type="permanent"
+        - Unknown domain: roles=["external"], employment_type="external"
+        """
+        client = get_client()
+        docs = list(
+            client.collection(COLLECTION_ACCESS_ROLES)
+            .where("email", "==", email)
+            .limit(1)
+            .stream()
+        )
+        if docs:
+            data = docs[0].to_dict()
+            return UserContext(
+                email=data.get("email", email),
+                roles=data.get("roles", ["employee"]),
+                department=data.get("department", ""),
+                employment_type=data.get("employment_type", "permanent"),
+            )
+        # Fallback: known domain → employee, unknown → external
+        domain = email.split("@")[-1] if "@" in email else ""
+        if domain == INTERNAL_DOMAIN:
+            return UserContext(email=email, roles=["employee"], employment_type="permanent")
+        return UserContext(email=email, roles=["external"], employment_type="external")
+
+    @staticmethod
+    def load_policies_from_firestore() -> list[dict]:
+        """Load all access policies from the _access_policies Firestore collection."""
+        client = get_client()
+        docs = client.collection(COLLECTION_ACCESS_POLICIES).stream()
+        return [doc.to_dict() for doc in docs]

@@ -229,3 +229,79 @@ def test_highest_priority_policy_wins():
     multi_role = UserContext(email="lead@ryzon.net", roles=["employee", "leadership"])
     decision = engine.evaluate(multi_role, DOC_CONFIDENTIAL_FEEDBACK)
     assert decision.allowed
+
+
+# -- Firestore integration tests --
+
+from unittest.mock import patch, MagicMock
+
+
+def _mock_firestore_doc(data, exists=True):
+    doc = MagicMock()
+    doc.exists = exists
+    doc.to_dict.return_value = data
+    return doc
+
+
+def _mock_firestore_query(docs_data):
+    """Create mock query that returns mock document snapshots."""
+    snapshots = []
+    for data in docs_data:
+        snap = MagicMock()
+        snap.to_dict.return_value = data
+        snapshots.append(snap)
+    return snapshots
+
+
+@patch("knowledge_mcp.core.access.get_client")
+def test_resolve_user_found(mock_get_client):
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+    mock_client.collection.return_value.where.return_value.limit.return_value.stream.return_value = [
+        _mock_firestore_doc({
+            "email": "simon@ryzon.net",
+            "roles": ["leadership"],
+            "department": "engineering",
+            "employment_type": "permanent",
+        })
+    ]
+    engine = PolicyEngine(policies=[])
+    user = engine.resolve_user("simon@ryzon.net")
+    assert user.email == "simon@ryzon.net"
+    assert "leadership" in user.roles
+    assert user.department == "engineering"
+
+
+@patch("knowledge_mcp.core.access.get_client")
+def test_resolve_user_not_found_ryzon_domain(mock_get_client):
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+    mock_client.collection.return_value.where.return_value.limit.return_value.stream.return_value = []
+    engine = PolicyEngine(policies=[])
+    user = engine.resolve_user("new@ryzon.net")
+    assert user.roles == ["employee"]
+    assert user.employment_type == "permanent"
+
+
+@patch("knowledge_mcp.core.access.get_client")
+def test_resolve_user_not_found_external_domain(mock_get_client):
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+    mock_client.collection.return_value.where.return_value.limit.return_value.stream.return_value = []
+    engine = PolicyEngine(policies=[])
+    user = engine.resolve_user("temp@external.com")
+    assert user.roles == ["external"]
+    assert user.employment_type == "external"
+
+
+@patch("knowledge_mcp.core.access.get_client")
+def test_load_policies_from_firestore(mock_get_client):
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+    mock_client.collection.return_value.stream.return_value = _mock_firestore_query([
+        {"name": "Admin", "priority": 400, "match_roles": ["admin"]},
+        {"name": "Employee", "priority": 100, "match_roles": ["employee"]},
+    ])
+    policies = PolicyEngine.load_policies_from_firestore()
+    assert len(policies) == 2
+    assert policies[0]["name"] == "Admin"
