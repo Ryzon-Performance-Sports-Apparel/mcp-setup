@@ -107,11 +107,28 @@ def seed():
         })
         print(f"  {policy_id}: {policy_data['name']}")
 
-    print("\nDone. Policies seeded successfully.")
-    print("\nNext: Add user roles to _access_roles collection.")
-    print("Example document:")
-    print('  {"email": "simon@ryzon.net", "roles": ["admin", "leadership"], '
-          '"department": "engineering", "employment_type": "permanent"}')
+    # Seed initial admin user
+    USERS = {
+        "simon_heinken": {
+            "email": "simon@ryzon.net",
+            "roles": ["admin", "leadership"],
+            "department": "engineering",
+            "employment_type": "permanent",
+            "teams": ["engineering", "product"],
+        },
+    }
+
+    print(f"\nSeeding {len(USERS)} users to _access_roles...")
+    for user_id, user_data in USERS.items():
+        doc_ref = client.collection("_access_roles").document(user_id)
+        doc_ref.set({
+            **user_data,
+            "created_at": now,
+            "updated_at": now,
+        })
+        print(f"  {user_id}: {user_data['email']} ({', '.join(user_data['roles'])})")
+
+    print("\nDone. Policies and users seeded successfully.")
 
 
 if __name__ == "__main__":
