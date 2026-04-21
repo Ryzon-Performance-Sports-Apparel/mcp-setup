@@ -1,205 +1,125 @@
-# Knowledge Setup — Meeting mit Sophie & Luca
+# Knowledge Setup — Meeting Sophie & Luca
 
-*Für heute · 30 Min · Ziel: Setup verstehen + offene Punkte gemeinsam entscheiden*
+*30 Min · Diagramm-basiert · 5 Diskussions-Punkte*
 
 ---
 
-## 1. Wie das Setup aussieht (Big Picture)
+## Das ganze Setup auf einen Blick
 
 ```mermaid
 flowchart TB
-    subgraph LAPTOP["💻 Euer Laptop · ~/Documents/projects/context/"]
-        VAULT["📝 ryzon-context-vault/<br/>(Obsidian, operativ)<br/>shared/ · simon/ · sophie/ · luca/ · granola/"]
-        AIC["📦 ai-context/<br/>(kuratiert, strategisch)<br/>meetings/ · decisions/ · domain/"]
-        PRIV["🔒 private/<br/>(nur lokal, nie committed)"]
-        DRIVE["☁️ drive/<br/>(Google Drive Sync, lokal)"]
+    U["👤 Sophie · Luca · Simon"]
+
+    subgraph CP["🤖 Claude Project · Ryzon Knowledge Ops"]
+        CMD["Commands: <b>/capture · /decision · /pull · /sources · /promote</b>"]
+        AUD["❷ Jede Antwort: Quellen-Block + Trust-Level<br/>(verified · draft · raw)"]
     end
 
-    subgraph GITHUB["🌐 GitHub (Ryzon Org)"]
-        GIT1["ryzon-context-vault"]
-        GIT2["ai-context"]
+    subgraph WORLDS["💻 ~/Documents/projects/context/ · auf eurem Laptop"]
+        direction LR
+
+        subgraph OPV["🟡 OPERATIV<br/>ryzon-context-vault (Obsidian)"]
+            OPG["granola/<br/><i>Meetings auto-synced</i>"]
+            OPP["simon/ · sophie/ · luca/<br/><i>persönliche Notes</i>"]
+            OPS["shared/<br/><i>Team-Scratchpad</i>"]
+        end
+
+        subgraph STR["🟢 STRATEGISCH<br/>ai-context (kuratiert)"]
+            STM["meetings/<br/>promovierte Protokolle"]
+            STD["decisions/<br/><b>Decision Log ❶</b>"]
+            STO["domain/<br/>Team-Standards"]
+        end
+
+        subgraph PRIV["🔒 private/ · nie committed"]
+            PP["1on1s · HR · Gesundheit ❺"]
+        end
     end
 
-    subgraph CLAUDE["🤖 Claude App"]
-        PROJECT["Claude Project:<br/>Ryzon Knowledge Ops"]
-        PLUGIN["Plugin:<br/>/capture · /decision<br/>/pull · /sources · /promote"]
-    end
+    U ==> CP
+    CP -->|"/capture · /pull"| OPV
+    CP -->|"/pull · /sources"| STR
+    OPV ==>|"⏳ FRIDAY RITUAL ❸<br/>Simon moderiert · 45 Min<br/>gemeinsam promote · keep · delete"| STR
 
-    VAULT <-->|"git sync"| GIT1
-    AIC <-->|"git sync"| GIT2
-    GIT1 -->|"GitHub Connector"| PROJECT
-    GIT2 -->|"GitHub Connector"| PROJECT
-    DRIVE -.->|"Drive Connector<br/>(nicht via git)"| PROJECT
-    PLUGIN --> PROJECT
+    classDef userNode fill:#e8f0ff,stroke:#3050a0,stroke-width:2px,color:#000
+    classDef projNode fill:#f0f4ff,stroke:#5070c0,stroke-width:2px,color:#000
+    classDef opNode fill:#fff6d9,stroke:#d4a800,stroke-width:2px,color:#000
+    classDef stNode fill:#d9f0d9,stroke:#2d7a2d,stroke-width:2px,color:#000
+    classDef privNode fill:#ffe0e0,stroke:#cc0000,stroke-dasharray:5 5,color:#000
 
-    style PRIV fill:#ffe0e0
-    style DRIVE fill:#e0e8ff
-    style VAULT fill:#fff6d9
-    style AIC fill:#d9f0d9
+    class U userNode
+    class CP,CMD,AUD projNode
+    class OPV,OPG,OPP,OPS opNode
+    class STR,STM,STD,STO stNode
+    class PRIV,PP privNode
 ```
 
-**Die zwei Welten:**
+---
 
-| | Operativ | Strategisch |
+## Was ihr tut — täglich & wöchentlich
+
+```mermaid
+flowchart LR
+    A["🌅 Morgens<br/>/pull sales"] --> B["✍️ Arbeiten<br/>mit Claude"]
+    B --> C["💡 Insight?<br/>/capture"]
+    B --> D["🎯 Entscheidung?<br/>/decision"]
+    C --> E["🔍 /sources<br/>prüfen"]
+    D --> E
+    E --> F["⏳ Freitag<br/>/promote<br/>Ritual"]
+    F --> G["✅ strategisch<br/>im Team-Standard"]
+
+    classDef day fill:#fff6d9,stroke:#d4a800,color:#000
+    classDef check fill:#e8f0ff,stroke:#3050a0,color:#000
+    classDef week fill:#d9f0d9,stroke:#2d7a2d,color:#000
+
+    class A,B,C,D day
+    class E check
+    class F,G week
+```
+
+---
+
+## Diskussions-Punkte · was wir heute von euch brauchen
+
+| | Frage | Kontext |
 |---|---|---|
-| **Wo** | `ryzon-context-vault/` | `ai-context/` |
-| **Was** | Tagebuch, Gedanken, Granola-Meetings, Drafts | Kuratierte Meetings, Entscheidungen, Domain-Wissen |
-| **Wie entsteht** | `/capture`, direkt in Obsidian, Granola-Auto-Sync | Nur durch **Promotion** (Friday-Ritual) |
-| **Wer darf rein** | Jede:r in eigenem Unterordner + `shared/` | Nur gemeinsam approvete Inhalte |
-| **Verfügbarkeit** | Obsidian-Graph, Wiki-Links, Tag-Pane | Team-Standard, verlässlich, reproduzierbar |
+| **❶** | **Decision-Log-Schema — passen die Felder?** | `question · decision · rationale · context_used · decided_by · supersedes` · fehlt etwas · ist eines überflüssig? |
+| **❷** | **Transparenz-Block — wie viel Detail?** | Claude listet bei jeder Antwort die Quellen · soll das sichtbar bleiben oder nur bei Bedarf (`/sources`)? |
+| **❸** | **Promotion-Flow — wer entscheidet was strategisch wird?** | Freitag-Ritual: jede:r selbst · Peer-Check · Simon als Gatekeeper? |
+| **❹** | **Tag-Taxonomie — frei oder kontrolliert?** | Feste Tag-Liste mit Retro-Änderungen · oder freies Tagging mit Agent-Normalisierung? |
+| **❺** | **Mario ab Woche 3 — was darf er sehen?** | alles team-shared · oder bestimmte Kategorien (HR, Personalentscheidungen) weiterhin geschützt? |
 
 ---
 
-## 2. Was ihr täglich tun werdet
+## Timeline
 
-### Die 4 Commands im Plugin
+```mermaid
+gantt
+    title 2-Wochen-Experiment + Mario-Onboarding
+    dateFormat YYYY-MM-DD
+    axisFormat %d.%m
 
-| Command | Wofür | Beispiel |
-|---|---|---|
-| **`/capture`** | Neue Notiz / Learning / Analyse speichern | `/capture learning Apollo performt 2x besser mit Video` |
-| **`/decision`** | Business-Entscheidung mit Begründung dokumentieren | `/decision CRM-Tool-Wahl: HubSpot vs Pipedrive` |
-| **`/pull`** | Relevanten Kontext für eine Aufgabe laden | `/pull sales apollo` |
-| **`/sources`** | Sehen, welche Files Claude gerade genutzt hat | (nach jeder Antwort aufrufbar) |
+    section Woche 1
+    Install-Session (30 Min/Person)    :milestone, m1, 2026-04-22, 0d
+    Tägliche Nutzung                   :active, 2026-04-22, 5d
+    Mittwoch Check-In (30 Min)         :milestone, m2, 2026-04-24, 0d
+    Ziel ≥10 Einträge pro Person       :crit, 2026-04-22, 5d
+    Freitag-Ritual (45 Min)            :milestone, m3, 2026-04-26, 0d
 
-**Zusätzlich am Freitag:** `/promote` (nutzt Simon beim gemeinsamen Friday-Ritual)
+    section Woche 2
+    Cross-Reads aktivieren             :active, 2026-04-27, 5d
+    Ziel ≥15 Einträge + ≥5 Cross-Refs  :crit, 2026-04-27, 5d
+    Trust-Battery-Check                :milestone, m4, 2026-05-03, 0d
+    Entscheidung A · B · C             :milestone, m5, 2026-05-03, 0d
 
-### Ein typischer Tag
-
-```
-Morgens    →  /pull sales        → Kontext geladen, loslegen
-Vormittag  →  Arbeit mit Claude  → Antwort nutzt geladenen Kontext
-Insight?   →  /capture learning  → strukturiert gespeichert
-Entscheidung?  →  /decision      → Schema-geführtes Interview
-Nach Chat  →  /sources (optional)→ verifizieren, welcher Kontext gewirkt hat
-```
-
----
-
-## 3. Transparenz & Vertrauen ab Tag 1
-
-**Jede Claude-Antwort zeigt am Ende:**
-
-```
-Quellen:
-- apollo-2026-q1-analysis.md — Basis für Empfehlung (▶ maßgeblich)
-- dec-2026-03-15-video-budget.md — bestehende Entscheidung referenziert
+    section Woche 3+
+    Mario onboarding                   :milestone, m6, 2026-05-06, 0d
+    Externer Berater (Phase 4)         :2026-05-13, 14d
 ```
 
-**Trust-Level pro Eintrag:** Jede Note trägt eines der drei Label:
-- **verified** — geprüft, zuverlässig
-- **draft** — Arbeitsstand, noch nicht final
-- **raw** — unverarbeitet (z.B. Granola-Export)
-
-Ihr könnt Claude sagen: *"Beantworte nur mit verified Quellen"* — dann nutzt er keine drafts.
-
 ---
 
-## 4. Das Friday-Ritual (Promotion operativ → strategisch)
+## Was wir heute NICHT lösen
 
-**Jeden Freitag 14:00–14:45, zusammen**
+`Marios Bierdeckel` · `Semantic Search` · `KI-Auto-Tagging` · `Ryzon Cockpit` · `Externer Berater`
 
-1. **Vorbereitung (automatisch):** Ein Agent sammelt alle operativen Einträge der Woche und schlägt Promotion-Kandidaten vor
-2. **Durchgehen (Simon moderiert):** Pro Kandidat entscheiden wir gemeinsam:
-   - **Promote** → landet in `ai-context/` (team-standard)
-   - **Keep operational** → bleibt im Vault, vielleicht später
-   - **Delete** → war nur Scratchpad
-3. **Trust-Battery-Check:** Jede:r sagt kurz: *"Wo steht mein Vertrauen in das Setup?"* (20% / 40% / 60% / 80%+)
-4. **Retro-Notiz:** Was hat funktioniert, was muss angepasst werden
-
----
-
-## 5. Die 2-Wochen-Experiment-Regeln
-
-**Was ihr zusagt:**
-- ~30 Min/Tag aktive Nutzung
-- Mindestens **10 Einträge in Woche 1**, **15 kumuliert in Woche 2**
-- **3 Decisions** mit vollem Schema
-- Teilnahme am Mittwoch-Check-In (30 Min) und am Friday-Retro (45 Min)
-
-**Was ihr bekommt:**
-- Ein Setup, das euer Wissen strukturiert und für Claude nutzbar macht
-- Transparenz über alle Quellen jeder Antwort
-- Ein Decision-Log, das bei wiederkehrenden Fragen automatisch greift
-- Möglichkeit jederzeit auszusteigen, wenn's nicht passt
-
-**Abort-Kriterien** (wann wir ehrlich stoppen):
-- Nach Woche 1 <5 Einträge pro Person → Friktion zu hoch
-- Lucas Trust-Battery fällt signifikant
-- Tech-Blocker blockieren >2 Tage
-
----
-
-## 6. Was wir NICHT in diesem Experiment machen
-
-- "Marios Bierdeckel" (informelle Gespräche mit Mario) — eigener Epic, separate Session
-- Semantic-Search / KI-Tagging — erst wenn Habit steht
-- Mario als Nutzer — kommt ab Woche 3
-- Externer Berater im Project — Phase 4, wenn Trust-Level etabliert
-
----
-
-## 7. 🟡 Offene Punkte — das brauchen wir heute von euch
-
-### 7.1 Decision-Log-Schema — passen die Felder?
-
-Vorgeschlagenes Schema pro Decision:
-
-```yaml
-question:       "Welche Frage beantwortet die Decision?"
-decision:       "Die Entscheidung in einem Satz"
-rationale:      "Warum genau so — 3-5 Sätze"
-context_used:   [welche Quellen waren Grundlage]
-decided_by:     [wer hat mitentschieden]
-supersedes:     [id einer älteren Decision, falls es eine gab]
-weight:         high (default bei Decisions)
-```
-
-**→ Frage:** Fehlt euch ein Feld? Ist eines überflüssig?
-
-### 7.2 Access Control
-
-**Stand jetzt:** Alles in `ai-context` und `ryzon-context-vault` ist für euch drei (Simon, Sophie, Luca) sichtbar. `private/<person>/` ist nur lokal.
-
-**→ Fragen:**
-- Was soll Mario ab Woche 3 **nicht** sehen?
-- Was soll der externe Berater **später** nicht sehen?
-- Wollt ihr eine explizite `sensitivity`-Kategorie in Decisions (z.B. `confidential` für Personalentscheidungen)?
-
-### 7.3 Erfolg des Experiments — wie messen wir?
-
-Bisherige Metriken:
-- Einträge pro Person
-- Cross-Reads (Sophie liest Lucas, umgekehrt)
-- Trust-Battery-Entwicklung
-
-**→ Frage:** Was würde für euch ein erfolgreiches Experiment sein? Was ein klares "das funktioniert nicht"?
-
-### 7.4 Tag-Taxonomie — frei oder kontrolliert?
-
-Zwei Modi:
-- **Kontrolliert:** Feste Tag-Liste in Schema, neue Tags nur nach Retro
-- **Frei:** Jede:r kann Tags erfinden, Agent normalisiert später
-
-**→ Frage:** Was fühlt sich für euch natürlicher an?
-
-### 7.5 Wer darf Decisions schreiben?
-
-- Jede:r eigenständig → maximale Verteilung
-- Mit Peer-Check (die oder der andere approved) → mehr Struktur
-- Simon als Gatekeeper → Bottleneck-Risiko
-
-**→ Frage:** Welches Modell für die 2 Wochen?
-
----
-
-## 8. Next Steps nach dem Meeting
-
-- **Heute Abend (Simon):** Pre-Rollout-Arbeit (Curation, Bug-Fix, Repos anlegen)
-- **Morgen / Montag (alle):** 30-Min Install-Session pro Person — ihr seid nach 30 Min einsatzbereit
-- **Diese Woche:** ihr startet mit `/pull` und `/capture`
-- **Nächster Mittwoch:** Mid-Week Check-In (30 Min)
-- **Nächster Freitag:** Erstes Friday-Ritual (45 Min) — inkl. erste Promotions
-
----
-
-**Bereit?**
+→ alles in Parking Lot, kommt zurück, wenn Fundament steht.
