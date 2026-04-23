@@ -328,41 +328,32 @@ Folder-Struktur unter ${C_BLUE}${CONTEXT_DIR}${C_RESET}:
   └── shared/                ← Team-Scratchpad
   private/${USERNAME}/       ← NICHT git, nur lokal
 
-${C_YELLOW}Manuelle Schritte (3 Stück):${C_RESET}
+${C_GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}
+${C_GREEN}  Weiter geht's im interaktiven Manual:${C_RESET}
+${C_GREEN}  ${C_BLUE}https://ai-cockpit.ryzon.net/wissen/growth-nexus-install#nach-install${C_RESET}
+${C_GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}
+
+Dort findest du:
+  • Plugin-ZIP als Direkt-Download
+  • Schritt-für-Schritt Claude-App-Setup mit Screenshots
+  • Deine ersten 30 Minuten — was genau machen
+  • Slack-Channel + erste Commands zum Ausprobieren
+
+${C_YELLOW}Kurz-Version, falls du offline weitermachen willst:${C_RESET}
 
 ${C_BLUE}① Obsidian-Vault öffnen${C_RESET}
    Starte Obsidian.app und öffne den Folder:
    ${CONTEXT_DIR}/ryzon-context-vault/${USERNAME}
+   ⚠  NUR deinen Folder ("${USERNAME}/"), NICHT den Repo-Root.
 
-   ⚠  Wichtig: öffne NUR deinen Folder ("${USERNAME}/"), NICHT den Repo-Root.
-   So funktionieren Wiki-Links und der Graph-View richtig.
+${C_BLUE}② Plugin in Claude App installieren${C_RESET}
+   Plugin-ZIP: https://ai-cockpit.ryzon.net/downloads/ryzon-knowledge-ops.zip
+   Claude App → Customize → Directory → Plugins → Personal → Upload plugin
 
-${C_BLUE}② Claude App — Plugin installieren${C_RESET}
-   1. Öffne Claude App → Customize → Directory → Plugins → Personal
-   2. Klick "Upload plugin"
-   3. Lade die ZIP-Datei ryzon-knowledge-ops.zip hoch
-      (Simon schickt dir den Link oder du findest sie im mcp-Repo)
-   4. Aktiviere das Plugin
+${C_BLUE}③ Claude Project "Growth Nexus" erstellen${C_RESET}
+   Plugin "ryzon-knowledge-ops" aktivieren · Connectors: GitHub + Drive
+   Instructions: docs/knowledge-setup/claude-project-instructions-template.md
 
-${C_BLUE}③ Claude Project "Ryzon Knowledge Ops" erstellen${C_RESET}
-   1. Claude App → New Project → Name: "Ryzon Knowledge Ops"
-   2. Aktiviere Plugin "ryzon-knowledge-ops"
-   3. Connectors hinzufügen:
-      - GitHub: beide Repos (growth-nexus + ryzon-context-vault)
-      - Google Drive: dein Drive
-   4. Project Instructions einfügen:
-      cat ${CONTEXT_DIR}/growth-nexus/schema/claude-project-instructions.md
-      (oder aus docs/knowledge-setup/claude-project-instructions-template.md im mcp-Repo)
-   5. Teste: "/capture learning Das Install-Script hat funktioniert"
-
-${C_YELLOW}Erste Nutzung:${C_RESET}
-  - "/pull sales" — lädt Kontext
-  - "/capture learning <content>" — speichert Insight
-  - "/decision <frage>" — dokumentiert Entscheidung
-  - "/distill" — destilliert lange Session
-
-${C_YELLOW}Bei Problemen:${C_RESET}
-  Slack-Channel: #knowledge-ops-experiment
-  Oder direkt Simon pingen.
+${C_YELLOW}Bei Problemen:${C_RESET} Slack #knowledge-ops-experiment · oder Simon pingen.
 
 EOF
