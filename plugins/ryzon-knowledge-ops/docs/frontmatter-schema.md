@@ -136,7 +136,8 @@ ryzon-context-vault/                    (operativ)
 ├── <person>/                           eigener Vault (self + operational)
 │   ├── notes/
 │   ├── learnings/
-│   ├── granola/                        auto-synced Meetings
+│   ├── meetings/                       Meeting-Notes (egal welches Tool)
+│   │   └── granola/                    optional: für Granola-Auto-Sync
 │   └── analyses/                       persönliche Analysen
 └── shared/                             (team + operational)
     ├── meetings/                       Meeting-Protokolle

@@ -2,7 +2,7 @@
 
 **Claude-Plugin für Ryzon Ops & Commercial — 9 Commands für strukturiertes Knowledge-Management: 5-Felder-Schema, Decision-Log, Quellen-Transparenz, Session-Summary, Validation-Workflow, F3 Consistency-Check, Archive-Search, Promotion-Flow.**
 
-*v0.5.0 · Stand 2026-04-21 · Full Team-MVP (Woche-1-Scope komplett)*
+*v0.6.0 · Stand 2026-04-22 · Full Team-MVP + Meeting-Source-Agnostic*
 
 ---
 
@@ -95,6 +95,7 @@ Wichtigste Files:
 
 ## Change Log
 
+- **0.6.0 (2026-04-22):** Meeting-Source-Agnostic — Vault-Convention: `<person>/meetings/` als primary Meeting-Folder (vorher `granola/` als peer). Granola-User nutzen `meetings/granola/` als optionalen Sub-Pfad. Google-Meet-User (Sophie/Luca) capturen via `/capture meeting` oder nutzen Drive-Connector live. Strategic-Repo-Rename ai-context → growth-nexus (0.5.1 silent).
 - **0.5.0 (2026-04-21):** Full Team-MVP — `/validate` (Insight-Rating mit Auto-Authority-Upgrade), `/verify` (F3 Consistency via Direct + First-Principles + Contrarian Reasoning), `/find` (Archive-Search mit Metadaten-Filter + Scoring)
 - **0.2.0 (2026-04-21):** Team-MVP Core — 5-Felder-Schema, `sensitivity: self|team|pii`, Routing-Tabelle, 3 neue Agents (decision-facilitator, dimension-enricher, promotion-reviewer), 2 neue Commands (`/promote`, `/distill`), Commands refactored für Routing-Awareness
 - **0.1.0 (2026-04-20):** Initialer MVP mit 4 Commands

@@ -257,7 +257,7 @@ fi
 USER_VAULT="${CONTEXT_DIR}/ryzon-context-vault/${USERNAME}"
 if [[ ! -d "$USER_VAULT" ]]; then
   warn "Dein Vault-Folder ${USERNAME}/ existiert nicht im Repo — lege an..."
-  mkdir -p "$USER_VAULT"/{notes,learnings,analyses,granola,meetings}
+  mkdir -p "$USER_VAULT"/{notes,learnings,analyses,meetings}
   echo "# ${USERNAME}'s Vault" > "${USER_VAULT}/README.md"
   cd "${CONTEXT_DIR}/ryzon-context-vault"
   git add "${USERNAME}/"

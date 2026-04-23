@@ -150,9 +150,33 @@ Drei Wege:
 2. Via Claude: `/pull <scope>` oder einfach natürlich fragen: "Hab ich vor 2 Wochen was zu Apollo geschrieben?"
 3. `/find` (kommt Do 30.04 mit v0.5.0)
 
-### Was ist mit Granola-Meetings?
+### Wie kommen meine Meeting-Notes rein?
 
-Das Granola-Plugin syncht automatisch in deinen Vault (`<dein-name>/granola/`). Du musst nichts tun. Beim Friday-Retro gehen wir durch, was davon strategisch wird.
+Hängt vom Tool ab, das du nutzt:
+
+**Simon (Granola):**
+- Granola-Sync-Plus Plugin in Obsidian schreibt automatisch in `simon/meetings/` (oder optional `simon/meetings/granola/` als Sub)
+- Du musst nichts tun — landet automatisch, area-tagger-agent enrichet nightly
+- Beim Friday-Retro gehen wir durch, was davon strategisch wird
+
+**Sophie & Luca (Google Meet / Gemini):**
+
+Zwei Wege parallel:
+
+1. **Live-Zugriff über Google Drive Connector** (für den Alltag)
+   - Dein Drive ist als Connector im Claude Project verbunden
+   - Claude kann direkt auf deine Gemini-generierten Meeting-Notes zugreifen
+   - Beispiel: *"Fass den Meet von heute mit Apollo zusammen"* — funktioniert ohne dass du was vorbereitet hast
+   - Grenze: nur **dein** Drive ist sichtbar, nicht das der anderen
+
+2. **Archivierung via `/capture meeting`** (für wichtige Meetings)
+   - Wenn ein Meeting für das Team langfristig relevant ist:
+     - Öffne die Gemini-Note (Google Docs)
+     - In Claude: `/capture meeting <titel>`, pasteten Inhalt rein
+     - Claude kondensiert, setzt Frontmatter, commitet nach `sophie/meetings/` oder `luca/meetings/`
+   - Damit ist es team-durchsuchbar via `/pull`, `/find`, und als Promotion-Kandidat fürs Friday-Ritual vorgemerkt
+
+**Faustregel:** Live-Zugriff für den Moment, `/capture meeting` für "das wird in 3 Monaten noch relevant sein".
 
 ### Kann ich Mario etwas zeigen, das er nicht sehen soll?
 

@@ -25,9 +25,9 @@ flowchart LR
 **Lokal auf eurem Laptop** unter `~/Documents/projects/context/`:
 
 ```
-ryzon-context-vault/           🟡 OPERATIV (Obsidian, shared Vault)
-├── granola/                   Meetings auto-synced
-├── simon/ sophie/ luca/       persönliche Notes
+ryzon-context-vault/           🟡 OPERATIV (individuelle Obsidian-Vaults)
+├── simon/ sophie/ luca/       persönliche Notes + Meetings
+│   └── meetings/              Meeting-Notes (Granola, Google Meet, manuell)
 └── shared/                    Team-Scratchpad
 
 growth-nexus/                    🟢 STRATEGISCH (kuratiert, Team-Standard)
